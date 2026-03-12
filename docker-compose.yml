@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -51,6 +51,7 @@ services:
       KAFKA_CFG_LOG_SEGMENT_BYTES: "1073741824"
       KAFKA_CFG_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
       KAFKA_CFG_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_CFG_MESSAGE_MAX_BYTES: "1048576"
       KAFKA_KRAFT_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
       ALLOW_PLAINTEXT_LISTENER: "yes"
     volumes:
@@ -75,6 +76,7 @@ services:
       KAFKA_CLUSTERS_0_NAME: local-kraft
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_READONLY: "false"
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
       DYNAMIC_CONFIG_ENABLED: "true"
 
 volumes:
