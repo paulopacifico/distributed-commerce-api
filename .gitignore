@@ -1,0 +1,3 @@
+order-service/target/
+order-service/.m2/
+.DS_Store
