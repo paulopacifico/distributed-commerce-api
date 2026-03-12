@@ -1,5 +1,6 @@
 package com.paulopacifico.orderservice.order.api;
 
+import com.paulopacifico.orderservice.messaging.api.OrderPlacedEvent;
 import com.paulopacifico.orderservice.order.domain.OrderEntity;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
 import java.time.OffsetDateTime;
@@ -33,8 +34,8 @@ public class OrderMapper {
         );
     }
 
-    public OrderCreatedEvent toCreatedEvent(OrderEntity entity) {
-        return new OrderCreatedEvent(
+    public OrderPlacedEvent toPlacedEvent(OrderEntity entity) {
+        return new OrderPlacedEvent(
                 UUID.randomUUID(),
                 entity.getId(),
                 entity.getOrderNumber(),

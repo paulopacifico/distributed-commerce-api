@@ -11,6 +11,7 @@ import com.paulopacifico.orderservice.order.api.OrderMapper;
 import com.paulopacifico.orderservice.order.api.OrderResponse;
 import com.paulopacifico.orderservice.order.domain.OrderEntity;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
+import com.paulopacifico.orderservice.order.messaging.OrderPlacedEventPublisher;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,11 +26,14 @@ class OrderServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private OrderPlacedEventPublisher orderPlacedEventPublisher;
+
     private OrderService orderService;
 
     @BeforeEach
     void setUp() {
-        orderService = new OrderService(orderRepository, new OrderMapper());
+        orderService = new OrderService(orderRepository, new OrderMapper(), orderPlacedEventPublisher);
     }
 
     @Test
@@ -51,6 +55,7 @@ class OrderServiceTest {
         assertThat(response.orderNumber()).isEqualTo("ORD-001");
         assertThat(response.status()).isEqualTo(OrderStatus.PENDING);
         verify(orderRepository).save(any(OrderEntity.class));
+        verify(orderPlacedEventPublisher).publish(any());
     }
 
     @Test

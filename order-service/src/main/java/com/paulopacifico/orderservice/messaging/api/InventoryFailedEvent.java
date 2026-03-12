@@ -1,0 +1,15 @@
+package com.paulopacifico.orderservice.messaging.api;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+public record InventoryFailedEvent(
+        UUID eventId,
+        Long orderId,
+        String orderNumber,
+        String skuCode,
+        Integer requestedQuantity,
+        String reason,
+        OffsetDateTime occurredAt
+) {
+}
