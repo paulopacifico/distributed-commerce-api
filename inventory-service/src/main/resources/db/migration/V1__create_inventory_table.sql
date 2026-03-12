@@ -1,0 +1,5 @@
+CREATE TABLE inventory (
+    id BIGSERIAL PRIMARY KEY,
+    sku_code VARCHAR(64) NOT NULL UNIQUE,
+    quantity INTEGER NOT NULL
+);
