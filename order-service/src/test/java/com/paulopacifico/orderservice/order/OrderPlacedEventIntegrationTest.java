@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,15 +34,25 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldCreateOrderAndPublishOrderPlacedEvent() {
-        ResponseEntity<OrderResponse> response = testRestTemplate.postForEntity(
+        ResponseEntity<String> response = testRestTemplate.postForEntity(
                 "http://localhost:" + port + "/api/orders",
                 new CreateOrderRequest("SKU-IT-100", new BigDecimal("49.90"), 3),
-                OrderResponse.class
+                String.class
         );
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getStatusCode())
+                .withFailMessage("Expected CREATED but got %s with body: %s", response.getStatusCode(), response.getBody())
+                .isEqualTo(HttpStatus.CREATED);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().status()).isEqualTo(OrderStatus.PENDING);
+
+        OrderResponse orderResponse;
+        try {
+            orderResponse = objectMapper.readValue(response.getBody(), OrderResponse.class);
+        } catch (Exception exception) {
+            throw new AssertionError("Failed to deserialize successful order response body: " + response.getBody(), exception);
+        }
+
+        assertThat(orderResponse.status()).isEqualTo(OrderStatus.PENDING);
 
         try (var consumer = kafkaConsumer("order-service-it")) {
             consumer.subscribe(List.of("order-placed-topic"));
@@ -63,7 +74,7 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
                         var record = records.iterator().next();
                         var event = objectMapper.readValue(record.value(), OrderPlacedEvent.class);
 
-                        assertThat(event.orderNumber()).isEqualTo(response.getBody().orderNumber());
+                        assertThat(event.orderNumber()).isEqualTo(orderResponse.orderNumber());
                         assertThat(event.skuCode()).isEqualTo("SKU-IT-100");
                         assertThat(event.quantity()).isEqualTo(3);
                     });

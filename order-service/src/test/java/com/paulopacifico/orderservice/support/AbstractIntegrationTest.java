@@ -6,14 +6,18 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Testcontainers
 public abstract class AbstractIntegrationTest {
@@ -32,6 +36,20 @@ public abstract class AbstractIntegrationTest {
             new KafkaContainer(
                     DockerImageName.parse("apache/kafka-native:3.8.0")
             );
+
+    static {
+        Startables.deepStart(Stream.of(POSTGRES, KAFKA)).join();
+    }
+
+    @DynamicPropertySource
+    static void registerDynamicProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+        registry.add("spring.kafka.producer.bootstrap-servers", KAFKA::getBootstrapServers);
+        registry.add("spring.kafka.consumer.bootstrap-servers", KAFKA::getBootstrapServers);
+    }
 
     protected final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
