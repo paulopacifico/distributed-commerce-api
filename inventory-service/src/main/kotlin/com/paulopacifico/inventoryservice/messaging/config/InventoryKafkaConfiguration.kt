@@ -8,6 +8,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.annotation.EnableKafka
@@ -31,8 +32,10 @@ class InventoryKafkaConfiguration {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Bean
-    fun kafkaObjectMapper(baseObjectMapper: ObjectMapper): ObjectMapper =
+    @Bean("kafkaObjectMapper")
+    fun kafkaObjectMapper(
+        @Qualifier("jacksonObjectMapper") baseObjectMapper: ObjectMapper,
+    ): ObjectMapper =
         baseObjectMapper.copy().registerKotlinModule()
 
     @Bean
@@ -58,7 +61,7 @@ class InventoryKafkaConfiguration {
     @Bean
     fun kafkaListenerContainerFactory(
         consumerFactory: ConsumerFactory<String, String>,
-        kafkaObjectMapper: ObjectMapper,
+        @Qualifier("kafkaObjectMapper") kafkaObjectMapper: ObjectMapper,
     ): ConcurrentKafkaListenerContainerFactory<String, String> =
         ConcurrentKafkaListenerContainerFactory<String, String>().apply {
             setConsumerFactory(consumerFactory)

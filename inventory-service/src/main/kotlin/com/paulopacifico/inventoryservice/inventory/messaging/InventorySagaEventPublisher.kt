@@ -6,12 +6,14 @@ import com.paulopacifico.inventoryservice.messaging.api.InventoryFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.InventoryReservedEvent
 import com.paulopacifico.inventoryservice.messaging.config.KafkaTopicProperties
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.stereotype.Component
 
 @Component
 class InventorySagaEventPublisher(
     private val kafkaTemplate: KafkaTemplate<String, String>,
+    @Qualifier("kafkaObjectMapper")
     private val kafkaObjectMapper: ObjectMapper,
     private val topics: KafkaTopicProperties,
 ) {
