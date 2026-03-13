@@ -52,6 +52,7 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
                         consumer.poll(Duration.ofMillis(200));
                         return !consumer.assignment().isEmpty();
                     });
+            consumer.seekToBeginning(consumer.assignment());
 
             Awaitility.await()
                     .atMost(Duration.ofSeconds(15))
