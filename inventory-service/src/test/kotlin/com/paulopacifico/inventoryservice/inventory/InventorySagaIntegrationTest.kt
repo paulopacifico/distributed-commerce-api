@@ -2,6 +2,7 @@ package com.paulopacifico.inventoryservice.inventory
 
 import com.paulopacifico.inventoryservice.inventory.application.InventoryRepository
 import com.paulopacifico.inventoryservice.inventory.domain.InventoryEntity
+import com.paulopacifico.inventoryservice.inventory.messaging.persistence.ProcessedOrderEventRepository
 import com.paulopacifico.inventoryservice.messaging.api.InventoryReservedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderPlacedEvent
 import com.paulopacifico.inventoryservice.support.AbstractIntegrationTest
@@ -11,13 +12,16 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import io.mockk.verify
 import java.math.BigDecimal
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.test.utils.ContainerTestUtils
 
 class InventorySagaIntegrationTest : AbstractIntegrationTest() {
 
@@ -25,15 +29,23 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
     lateinit var inventoryRepository: InventoryRepository
 
     @Autowired
+    lateinit var processedOrderEventRepository: ProcessedOrderEventRepository
+
+    @Autowired
     lateinit var kafkaTemplate: KafkaTemplate<String, String>
+
+    @Autowired
+    lateinit var kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry
 
     init {
         beforeSpec {
             inventoryRepository.deleteAll()
+            processedOrderEventRepository.deleteAll()
         }
 
         beforeTest {
             inventoryRepository.deleteAll()
+            processedOrderEventRepository.deleteAll()
         }
 
         "should consume order placed event, deduct stock, and publish inventory reserved event" {
@@ -48,8 +60,18 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
 
             kafkaConsumer("inventory-service-it").use { consumer ->
                 consumer.subscribe(listOf("inventory-reserved-topic"))
-                consumer.poll(java.time.Duration.ofMillis(200))
+                eventually(12.seconds) {
+                    consumer.poll(Duration.ofMillis(200))
+                    consumer.assignment().size shouldBeExactly 3
+                }
                 consumer.seekToEnd(consumer.assignment())
+
+                val listenerContainer = requireNotNull(
+                    kafkaListenerEndpointRegistry.getListenerContainer("orderPlacedSagaConsumer"),
+                ) {
+                    "Kafka listener container orderPlacedSagaConsumer was not registered"
+                }
+                ContainerTestUtils.waitForAssignment(listenerContainer, 3)
 
                 val orderPlacedEvent = OrderPlacedEvent(
                     eventId = UUID.randomUUID(),

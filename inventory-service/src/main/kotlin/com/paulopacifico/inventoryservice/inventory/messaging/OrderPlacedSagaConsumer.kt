@@ -26,6 +26,7 @@ class OrderPlacedSagaConsumer(
 
     @Transactional
     @KafkaListener(
+        id = "orderPlacedSagaConsumer",
         topics = ["\${app.kafka.topics.order-placed}"],
         groupId = "\${spring.kafka.consumer.group-id}",
         containerFactory = "kafkaListenerContainerFactory",
