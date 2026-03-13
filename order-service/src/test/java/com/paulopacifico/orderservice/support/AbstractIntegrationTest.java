@@ -5,10 +5,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.junit.jupiter.api.TestInstance;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -19,7 +16,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @Testcontainers
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractIntegrationTest {
 
     @Container
@@ -36,19 +32,6 @@ public abstract class AbstractIntegrationTest {
             new KafkaContainer(
                     DockerImageName.parse("apache/kafka-native:3.8.0")
             );
-
-    /**
-     * Explicitly register Testcontainers' dynamic ports so they override application.yml defaults.
-     * Required because Kafka's @ServiceConnection can fail to override bootstrap-servers in some
-     * environments (e.g. URL scheme or initialization order). Ensures the app uses container ports.
-     */
-    @DynamicPropertySource
-    static void registerDynamicProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-    }
 
     protected final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
