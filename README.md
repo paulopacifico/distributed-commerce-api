@@ -123,6 +123,24 @@ The Inventory Service starts on `http://localhost:8082`.
 - Kotest and MockK are used for idiomatic Kotlin integration coverage in the Inventory Service
 - `Thread.sleep()` is intentionally avoided in favor of deterministic polling-based assertions
 
+### Local Test Modes
+
+Use the full test suite when Docker is available locally:
+
+```bash
+cd order-service && mvn test
+cd ../inventory-service && mvn test
+```
+
+Use the unit-only path when Docker/Testcontainers is unavailable:
+
+```bash
+cd order-service && mvn test -DskipIntegrationTests
+cd ../inventory-service && mvn test -DskipIntegrationTests
+```
+
+The `skipIntegrationTests` profile excludes the Testcontainers-based integration specs while keeping the service-layer unit tests active in both modules.
+
 ### CI/CD Strategy
 
 The intended CI/CD workflow for this project is GitHub Actions, focused on the delivery practices expected in senior backend environments:
@@ -132,7 +150,7 @@ The intended CI/CD workflow for this project is GitHub Actions, focused on the d
 - build Docker images for the Java and Kotlin services
 - validate the Docker Compose stack as a deployment simulation step
 
-At the moment, the repository is structured for that pipeline and already includes the application, messaging, and integration test foundations needed for CI automation. Adding the workflow definitions is the next delivery step.
+The repository includes a GitHub Actions workflow that runs the Maven test/build pipeline, pre-pulls the Testcontainers images used by both services, builds Docker images, and finishes with a mock deployment stage.
 
 ## Engineering Highlights
 
@@ -145,7 +163,6 @@ At the moment, the repository is structured for that pipeline and already includ
 
 ## Next Steps
 
-- add GitHub Actions workflows for automated test and image build execution
 - add distributed tracing and correlation IDs for better observability
 - externalize topic management and environment configuration for deployment targets
 - extend the domain with payment and shipment services to evolve the saga
