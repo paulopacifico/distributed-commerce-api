@@ -143,14 +143,6 @@ At the moment, the repository is structured for that pipeline and already includ
 - global exception handling in both services
 - strict separation between persistence models and external contracts
 
-## Interview Talking Points
-
-- Why choreography was chosen over orchestration for a small but realistic OMS domain
-- How eventual consistency affects API design, failure handling, and user expectations
-- Why idempotent consumers are critical in Kafka-based microservices
-- How a polyglot architecture can improve team effectiveness when bounded contexts are clear
-- How Testcontainers increases confidence compared with mock-heavy integration testing
-
 ## Next Steps
 
 - add GitHub Actions workflows for automated test and image build execution
