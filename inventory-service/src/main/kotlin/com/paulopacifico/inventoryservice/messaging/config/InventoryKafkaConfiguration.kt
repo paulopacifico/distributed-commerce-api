@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.annotation.EnableKafka
@@ -34,9 +35,12 @@ class InventoryKafkaConfiguration {
 
     @Bean("kafkaObjectMapper")
     fun kafkaObjectMapper(
-        @Qualifier("jacksonObjectMapper") baseObjectMapper: ObjectMapper,
+        objectMapperBuilder: Jackson2ObjectMapperBuilder,
     ): ObjectMapper =
-        baseObjectMapper.copy().registerKotlinModule()
+        objectMapperBuilder
+            .createXmlMapper(false)
+            .build<ObjectMapper>()
+            .registerKotlinModule()
 
     @Bean
     fun producerFactory(kafkaProperties: KafkaProperties): ProducerFactory<String, String> {
