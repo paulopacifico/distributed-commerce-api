@@ -1,6 +1,6 @@
 # Event-Driven Polyglot Order Management System
 
-An event-driven Order Management System (OMS) built as a senior-level portfolio project to demonstrate distributed systems design, polyglot service development, and production-minded engineering practices for modern backend teams.
+An event-driven Order Management System (OMS) built as a portfolio project to demonstrate distributed systems design, polyglot service development, and production-minded engineering practices for modern backend teams.
 
 The project models a realistic commerce workflow in which order creation and inventory reservation are coordinated through Apache Kafka using the Choreography Saga Pattern. The result is a resilient, loosely coupled architecture designed for eventual consistency, service autonomy, and operational clarity.
 
