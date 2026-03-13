@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
@@ -12,7 +13,8 @@ jobs:
   build-test-and-package:
     runs-on: ubuntu-latest
     env:
-      # Testcontainers: reduce CI flakiness and use host Docker explicitly
+      # GitHub-hosted Ubuntu runners already expose a Docker daemon.
+      # Testcontainers should use the host socket directly instead of docker:dind.
       TESTCONTAINERS_CHECKS_DISABLE: true
       DOCKER_HOST: unix:///var/run/docker.sock
 
@@ -33,13 +35,27 @@ jobs:
           docker version
           echo "DOCKER_HOST=${DOCKER_HOST}"
 
+      - name: Pull Testcontainers images
+        run: |
+          docker pull postgres:16-alpine
+          docker pull apache/kafka-native:3.8.0
+
       - name: Build and test order-service
         working-directory: order-service
-        run: mvn -B clean verify
+        run: mvn -B clean verify -Dspring.profiles.active=test
 
       - name: Build and test inventory-service
         working-directory: inventory-service
-        run: mvn -B clean verify
+        run: mvn -B clean verify -Dspring.profiles.active=test
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            order-service/target/surefire-reports/
+            inventory-service/target/surefire-reports/
 
       - name: Build Docker image for order-service
         run: docker build -t order-service:ci ./order-service
