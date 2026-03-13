@@ -9,17 +9,14 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.lifecycle.Startables
 import org.testcontainers.utility.DockerImageName
 import java.util.UUID
-import java.util.stream.Stream
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -45,6 +42,7 @@ abstract class AbstractIntegrationTest(body: StringSpec.() -> Unit = {}) : Strin
 
     companion object {
         @Container
+        @ServiceConnection
         @JvmStatic
         val postgres = PostgreSQLContainer("postgres:16-alpine")
             .withDatabaseName("inventory_db")
@@ -52,22 +50,10 @@ abstract class AbstractIntegrationTest(body: StringSpec.() -> Unit = {}) : Strin
             .withPassword("test")
 
         @Container
+        @ServiceConnection
         @JvmStatic
         val kafka = KafkaContainer(
             DockerImageName.parse("apache/kafka-native:3.8.0"),
         )
-
-        init {
-            Startables.deepStart(Stream.of(postgres, kafka)).join()
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun registerProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", postgres::getJdbcUrl)
-            registry.add("spring.datasource.username", postgres::getUsername)
-            registry.add("spring.datasource.password", postgres::getPassword)
-            registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers)
-        }
     }
 }
