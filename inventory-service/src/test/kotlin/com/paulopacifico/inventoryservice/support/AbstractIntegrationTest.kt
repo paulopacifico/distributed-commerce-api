@@ -16,8 +16,10 @@ import org.testcontainers.containers.KafkaContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.lifecycle.Startables
 import org.testcontainers.utility.DockerImageName
 import java.util.UUID
+import java.util.stream.Stream
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -55,6 +57,10 @@ abstract class AbstractIntegrationTest(body: StringSpec.() -> Unit = {}) : Strin
             DockerImageName.parse("apache/kafka-native:3.8.0")
                 .asCompatibleSubstituteFor("confluentinc/cp-kafka"),
         )
+
+        init {
+            Startables.deepStart(Stream.of(postgres, kafka)).join()
+        }
 
         @JvmStatic
         @DynamicPropertySource

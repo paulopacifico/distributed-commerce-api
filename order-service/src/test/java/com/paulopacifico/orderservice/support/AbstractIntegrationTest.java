@@ -13,9 +13,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.lifecycle.Startables;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -34,6 +36,10 @@ public abstract class AbstractIntegrationTest {
                     DockerImageName.parse("apache/kafka-native:3.8.0")
                             .asCompatibleSubstituteFor("confluentinc/cp-kafka")
             );
+
+    static {
+        Startables.deepStart(Stream.of(POSTGRES, KAFKA)).join();
+    }
 
     protected final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
