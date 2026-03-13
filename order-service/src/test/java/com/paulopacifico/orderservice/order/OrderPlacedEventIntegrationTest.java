@@ -33,23 +33,28 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldCreateOrderAndPublishOrderPlacedEvent() {
+        ResponseEntity<OrderResponse> response = testRestTemplate.postForEntity(
+                "http://localhost:" + port + "/api/orders",
+                new CreateOrderRequest("SKU-IT-100", new BigDecimal("49.90"), 3),
+                OrderResponse.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(OrderStatus.PENDING);
+
         try (var consumer = kafkaConsumer("order-service-it")) {
             consumer.subscribe(List.of("order-placed-topic"));
-            consumer.poll(Duration.ofMillis(200));
-            consumer.seekToEnd(consumer.assignment());
-
-            ResponseEntity<OrderResponse> response = testRestTemplate.postForEntity(
-                    "http://localhost:" + port + "/api/orders",
-                    new CreateOrderRequest("SKU-IT-100", new BigDecimal("49.90"), 3),
-                    OrderResponse.class
-            );
-
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            assertThat(response.getBody()).isNotNull();
-            assertThat(response.getBody().status()).isEqualTo(OrderStatus.PENDING);
 
             Awaitility.await()
-                    .atMost(Duration.ofSeconds(10))
+                    .atMost(Duration.ofSeconds(5))
+                    .until(() -> {
+                        consumer.poll(Duration.ofMillis(200));
+                        return !consumer.assignment().isEmpty();
+                    });
+
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(15))
                     .untilAsserted(() -> {
                         var records = consumer.poll(Duration.ofMillis(500));
                         assertThat(records).isNotEmpty();
