@@ -186,4 +186,29 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <!-- Use -DskipIntegrationTests to skip Testcontainers-based integration tests (e.g. when Docker is unavailable) -->
+        <profile>
+            <id>skip-integration-tests</id>
+            <activation>
+                <property>
+                    <name>skipIntegrationTests</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/*IntegrationTest.kt</exclude>
+                                <exclude>**/*IntegrationTest</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -11,6 +11,10 @@ on:
 jobs:
   build-test-and-package:
     runs-on: ubuntu-latest
+    env:
+      # Testcontainers: reduce CI flakiness and use host Docker explicitly
+      TESTCONTAINERS_CHECKS_DISABLE: true
+      DOCKER_HOST: unix:///var/run/docker.sock
 
     steps:
       - name: Checkout repository
@@ -22,6 +26,12 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      - name: Verify Docker is available
+        run: |
+          docker info
+          docker version
+          echo "DOCKER_HOST=${DOCKER_HOST}"
 
       - name: Build and test order-service
         working-directory: order-service
