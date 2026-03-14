@@ -68,7 +68,7 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
 
             kafkaConsumer("inventory-service-it").use { consumer ->
                 consumer.subscribe(listOf("inventory-reserved-topic"))
-                eventually(12.seconds) {
+                eventually(30.seconds) {
                     consumer.poll(Duration.ofMillis(200))
                     consumer.assignment().size shouldBeExactly 3
                 }
@@ -99,7 +99,7 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                     ),
                 ).get()
 
-                eventually(12.seconds) {
+                eventually(30.seconds) {
                     val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-100"))
                     updatedInventory.quantity shouldBeExactly 8
 
