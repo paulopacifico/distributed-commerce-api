@@ -3,9 +3,14 @@ package com.paulopacifico.inventoryservice.support
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.extensions.spring.SpringExtension
+import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.shouldBe
 import org.apache.kafka.clients.consumer.Consumer
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.admin.AdminClientConfig
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -19,6 +24,7 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.lifecycle.Startables
 import org.testcontainers.utility.DockerImageName
+import kotlin.time.Duration.Companion.seconds
 import java.util.UUID
 import java.util.stream.Stream
 
@@ -43,6 +49,22 @@ abstract class AbstractIntegrationTest(body: StringSpec.() -> Unit = {}) : Strin
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG to StringDeserializer::class.java,
             ),
         )
+
+    protected suspend fun awaitTopicReady(vararg topicNames: String) {
+        AdminClient.create(
+            mapOf(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.bootstrapServers),
+        ).use { adminClient ->
+            eventually(20.seconds) {
+                val existingTopics = adminClient.listTopics().names().get()
+                existingTopics shouldContainAll topicNames.toList()
+
+                val topicDescriptions = adminClient.describeTopics(topicNames.toList()).allTopicNames().get()
+                topicDescriptions.values.forEach { description ->
+                    description.partitions().size shouldBe 3
+                }
+            }
+        }
+    }
 
     companion object {
         @Container

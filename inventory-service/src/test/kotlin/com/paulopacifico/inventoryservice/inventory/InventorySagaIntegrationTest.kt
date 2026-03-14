@@ -1,5 +1,6 @@
 package com.paulopacifico.inventoryservice.inventory
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.paulopacifico.inventoryservice.inventory.application.InventoryRepository
 import com.paulopacifico.inventoryservice.inventory.domain.InventoryEntity
 import com.paulopacifico.inventoryservice.inventory.messaging.persistence.ProcessedOrderEventRepository
@@ -19,6 +20,7 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.test.utils.ContainerTestUtils
@@ -37,6 +39,10 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
     @Autowired
     lateinit var kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry
 
+    @Autowired
+    @Qualifier("kafkaObjectMapper")
+    lateinit var kafkaObjectMapper: ObjectMapper
+
     init {
         beforeSpec {
             inventoryRepository.deleteAll()
@@ -49,6 +55,8 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
         }
 
         "should consume order placed event, deduct stock, and publish inventory reserved event" {
+            awaitTopicReady("order-placed-topic", "inventory-reserved-topic", "inventory-failed-topic")
+
             inventoryRepository.save(
                 InventoryEntity(
                     skuCode = "SKU-KT-100",
@@ -87,7 +95,7 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                     ProducerRecord(
                         "order-placed-topic",
                         orderPlacedEvent.orderNumber,
-                        objectMapper.writeValueAsString(orderPlacedEvent),
+                        kafkaObjectMapper.writeValueAsString(orderPlacedEvent),
                     ),
                 ).get()
 
@@ -98,10 +106,8 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                     val records = consumer.poll(java.time.Duration.ofMillis(500))
                     records.count() shouldBe 1
 
-                    val event = objectMapper.readValue(
-                        records.iterator().next().value(),
-                        InventoryReservedEvent::class.java,
-                    )
+                    val payload = records.iterator().next().value()
+                    val event = kafkaObjectMapper.readValue(payload, InventoryReservedEvent::class.java)
 
                     event.orderId shouldBe 101L
                     event.skuCode shouldBe "SKU-KT-100"
