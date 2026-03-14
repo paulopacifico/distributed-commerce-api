@@ -22,6 +22,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory
 import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.DefaultErrorHandler
+import org.springframework.kafka.listener.RetryListener
 import org.springframework.kafka.support.serializer.JsonDeserializer
 import org.springframework.util.backoff.FixedBackOff
 import java.util.HashMap
@@ -93,8 +94,21 @@ class InventoryKafkaConfiguration {
                     exception,
                 )
             },
-            FixedBackOff(0L, 0L),
-        )
+            FixedBackOff(1_000L, 5L),
+        ).apply {
+            setRetryListeners(
+                RetryListener { record, exception, deliveryAttempt ->
+                    logger.warn(
+                        "Retrying Kafka record topic={} partition={} offset={} attempt={} due to {}",
+                        record.topic(),
+                        record.partition(),
+                        record.offset(),
+                        deliveryAttempt,
+                        exception.message,
+                    )
+                },
+            )
+        }
 
     @Bean
     fun orderPlacedTopic(topics: KafkaTopicProperties): NewTopic =
