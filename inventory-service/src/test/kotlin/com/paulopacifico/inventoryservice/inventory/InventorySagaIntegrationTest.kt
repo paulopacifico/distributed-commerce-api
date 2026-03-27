@@ -19,6 +19,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
@@ -100,10 +101,15 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                     ),
                 ).get()
 
+                // Accumulate records across all eventually iterations so that records polled
+                // in an earlier iteration (before the DB transaction commits) are not lost.
+                val collectedRecords = mutableListOf<ConsumerRecord<String, String>>()
+
                 eventually(30.seconds) {
                     val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-100"))
-                    val records = consumer.poll(java.time.Duration.ofMillis(500))
-                    val failedRecord = records.firstOrNull { it.topic() == "inventory-failed-topic" }
+                    consumer.poll(java.time.Duration.ofMillis(500)).forEach { collectedRecords.add(it) }
+
+                    val failedRecord = collectedRecords.firstOrNull { it.topic() == "inventory-failed-topic" }
                     if (failedRecord != null) {
                         val failedEvent = kafkaObjectMapper.readValue(failedRecord.value(), InventoryFailedEvent::class.java)
                         error("Inventory saga published failure event: ${failedEvent.reason}")
@@ -111,7 +117,7 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
 
                     updatedInventory.quantity shouldBeExactly 8
 
-                    val reservedRecord = requireNotNull(records.firstOrNull { it.topic() == "inventory-reserved-topic" }) {
+                    val reservedRecord = requireNotNull(collectedRecords.firstOrNull { it.topic() == "inventory-reserved-topic" }) {
                         "Expected inventory-reserved-topic record but none was published"
                     }
                     val payload = reservedRecord.value()
