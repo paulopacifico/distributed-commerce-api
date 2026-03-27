@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 
 @Entity
 @Table(name = "inventory")
@@ -18,6 +19,9 @@ class InventoryEntity(
     @Column(nullable = false)
     var quantity: Int,
 ) {
+    @Version
+    var version: Long? = null
+
     fun hasEnoughQuantity(requiredQuantity: Int): Boolean = quantity >= requiredQuantity
 
     fun deduct(requiredQuantity: Int) {
