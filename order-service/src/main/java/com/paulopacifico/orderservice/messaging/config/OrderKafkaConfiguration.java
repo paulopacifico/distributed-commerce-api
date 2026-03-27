@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +15,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
@@ -30,8 +29,6 @@ import static org.springframework.kafka.config.TopicBuilder.name;
 @EnableKafka
 @EnableConfigurationProperties(KafkaTopicProperties.class)
 public class OrderKafkaConfiguration {
-
-    private static final Logger log = LoggerFactory.getLogger(OrderKafkaConfiguration.class);
 
     @Bean
     public ProducerFactory<String, String> producerFactory(KafkaProperties kafkaProperties) {
@@ -57,7 +54,8 @@ public class OrderKafkaConfiguration {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
             ConsumerFactory<String, String> consumerFactory,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            DefaultErrorHandler kafkaErrorHandler
     ) {
         var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
         factory.setConsumerFactory(consumerFactory);
@@ -68,23 +66,14 @@ public class OrderKafkaConfiguration {
         var recordMessageConverter = new StringJsonMessageConverter(objectMapper.copy());
         recordMessageConverter.setMessagingConverter(jackson2MessageConverter);
         factory.setRecordMessageConverter(recordMessageConverter);
-        factory.setCommonErrorHandler(kafkaErrorHandler());
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler() {
-        return new DefaultErrorHandler(
-                (record, exception) -> log.error(
-                        "Skipping Kafka record topic={} partition={} offset={} due to {}",
-                        record.topic(),
-                        record.partition(),
-                        record.offset(),
-                        exception.getMessage(),
-                        exception
-                ),
-                new FixedBackOff(0L, 0L)
-        );
+    public DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, String> kafkaTemplate) {
+        var recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate);
+        return new DefaultErrorHandler(recoverer, new FixedBackOff(1_000L, 3L));
     }
 
     @Bean
@@ -100,5 +89,15 @@ public class OrderKafkaConfiguration {
     @Bean
     public NewTopic inventoryFailedTopic(KafkaTopicProperties topics) {
         return name(topics.inventoryFailed()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic inventoryReservedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.inventoryReserved() + ".DLT").partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic inventoryFailedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.inventoryFailed() + ".DLT").partitions(3).replicas(1).build();
     }
 }
