@@ -66,7 +66,6 @@ class InventoryKafkaConfiguration {
 
         val valueDeserializer = JsonDeserializer(OrderPlacedEvent::class.java, kafkaObjectMapper.copy(), false).apply {
             ignoreTypeHeaders()
-            addTrustedPackages("*")
         }
 
         return DefaultKafkaConsumerFactory(properties, StringDeserializer(), valueDeserializer)
