@@ -2,7 +2,6 @@ package com.paulopacifico.inventoryservice.messaging.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.paulopacifico.inventoryservice.messaging.api.OrderPlacedEvent
 import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
@@ -23,7 +22,8 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.core.ProducerFactory
 import org.springframework.kafka.listener.DefaultErrorHandler
 import org.springframework.kafka.listener.RetryListener
-import org.springframework.kafka.support.serializer.JsonDeserializer
+import org.springframework.kafka.support.converter.StringJsonMessageConverter
+import org.springframework.messaging.converter.MappingJackson2MessageConverter
 import org.springframework.util.backoff.FixedBackOff
 import java.util.HashMap
 
@@ -56,27 +56,25 @@ class InventoryKafkaConfiguration {
         KafkaTemplate(producerFactory)
 
     @Bean
-    fun consumerFactory(
-        kafkaProperties: KafkaProperties,
-        @Qualifier("kafkaObjectMapper") kafkaObjectMapper: ObjectMapper,
-    ): ConsumerFactory<String, OrderPlacedEvent> {
+    fun consumerFactory(kafkaProperties: KafkaProperties): ConsumerFactory<String, String> {
         val properties = HashMap(kafkaProperties.buildConsumerProperties())
         properties.putIfAbsent(org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java)
-        properties.putIfAbsent(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer::class.java)
-
-        val valueDeserializer = JsonDeserializer(OrderPlacedEvent::class.java, kafkaObjectMapper.copy(), false).apply {
-            ignoreTypeHeaders()
-        }
-
-        return DefaultKafkaConsumerFactory(properties, StringDeserializer(), valueDeserializer)
+        properties.putIfAbsent(org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer::class.java)
+        return DefaultKafkaConsumerFactory(properties)
     }
 
     @Bean
     fun kafkaListenerContainerFactory(
-        consumerFactory: ConsumerFactory<String, OrderPlacedEvent>,
-    ): ConcurrentKafkaListenerContainerFactory<String, OrderPlacedEvent> =
-        ConcurrentKafkaListenerContainerFactory<String, OrderPlacedEvent>().apply {
+        consumerFactory: ConsumerFactory<String, String>,
+        @Qualifier("kafkaObjectMapper") kafkaObjectMapper: ObjectMapper,
+    ): ConcurrentKafkaListenerContainerFactory<String, String> =
+        ConcurrentKafkaListenerContainerFactory<String, String>().apply {
             setConsumerFactory(consumerFactory)
+            val jackson2MessageConverter = MappingJackson2MessageConverter()
+            jackson2MessageConverter.objectMapper = kafkaObjectMapper.copy()
+            val recordMessageConverter = StringJsonMessageConverter(kafkaObjectMapper.copy())
+            recordMessageConverter.setMessagingConverter(jackson2MessageConverter)
+            setRecordMessageConverter(recordMessageConverter)
             setCommonErrorHandler(kafkaErrorHandler())
         }
 
@@ -120,4 +118,8 @@ class InventoryKafkaConfiguration {
     @Bean
     fun inventoryFailedTopic(topics: KafkaTopicProperties): NewTopic =
         TopicBuilder.name(topics.inventoryFailed).partitions(3).replicas(1).build()
+
+    @Bean
+    fun orderFailedTopic(topics: KafkaTopicProperties): NewTopic =
+        TopicBuilder.name(topics.orderFailed).partitions(3).replicas(1).build()
 }

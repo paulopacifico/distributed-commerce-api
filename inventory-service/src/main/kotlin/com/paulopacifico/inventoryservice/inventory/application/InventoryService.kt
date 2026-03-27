@@ -46,6 +46,20 @@ class InventoryService(
             ?: throw InventoryNotFoundException(skuCode)
 
     @Transactional
+    fun releaseInventory(skuCode: String, quantity: Int) {
+        val inventory = inventoryRepository.findBySkuCode(skuCode.trim())
+            ?: throw InventoryNotFoundException(skuCode)
+        inventory.quantity += quantity
+        inventoryRepository.save(inventory)
+        logger.info(
+            "Released inventory for skuCode={} releasedQuantity={} newQuantity={}",
+            inventory.skuCode,
+            quantity,
+            inventory.quantity,
+        )
+    }
+
+    @Transactional
     fun reserveInventory(skuCode: String, requiredQuantity: Int): InventoryReservationResponse {
         val inventory = inventoryRepository.findBySkuCode(skuCode.trim())
             ?: throw InventoryNotFoundException(skuCode)

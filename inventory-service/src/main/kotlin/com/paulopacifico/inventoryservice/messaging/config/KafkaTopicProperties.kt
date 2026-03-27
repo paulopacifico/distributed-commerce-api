@@ -7,4 +7,5 @@ data class KafkaTopicProperties(
     var orderPlaced: String = "order-placed-topic",
     var inventoryReserved: String = "inventory-reserved-topic",
     var inventoryFailed: String = "inventory-failed-topic",
+    var orderFailed: String = "order-failed-topic",
 )

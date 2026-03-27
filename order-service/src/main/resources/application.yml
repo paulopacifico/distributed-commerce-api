@@ -49,6 +49,7 @@ app:
       order-placed: ${ORDER_PLACED_TOPIC:order-placed-topic}
       inventory-reserved: ${INVENTORY_RESERVED_TOPIC:inventory-reserved-topic}
       inventory-failed: ${INVENTORY_FAILED_TOPIC:inventory-failed-topic}
+      order-failed: ${ORDER_FAILED_TOPIC:order-failed-topic}
 
 logging:
   level:

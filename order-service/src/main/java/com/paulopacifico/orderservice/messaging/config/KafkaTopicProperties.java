@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record KafkaTopicProperties(
         String orderPlaced,
         String inventoryReserved,
-        String inventoryFailed
+        String inventoryFailed,
+        String orderFailed
 ) {
 }

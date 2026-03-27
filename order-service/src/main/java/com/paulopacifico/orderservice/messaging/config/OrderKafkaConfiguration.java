@@ -100,4 +100,14 @@ public class OrderKafkaConfiguration {
     public NewTopic inventoryFailedDltTopic(KafkaTopicProperties topics) {
         return name(topics.inventoryFailed() + ".DLT").partitions(3).replicas(1).build();
     }
+
+    @Bean
+    public NewTopic orderFailedTopic(KafkaTopicProperties topics) {
+        return name(topics.orderFailed()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderFailedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.orderFailed() + ".DLT").partitions(3).replicas(1).build();
+    }
 }

@@ -3,6 +3,8 @@ package com.paulopacifico.inventoryservice.inventory.messaging
 import com.paulopacifico.inventoryservice.inventory.application.InsufficientInventoryException
 import com.paulopacifico.inventoryservice.inventory.application.InventoryNotFoundException
 import com.paulopacifico.inventoryservice.inventory.application.InventoryService
+import com.paulopacifico.inventoryservice.inventory.messaging.persistence.InventoryReservationEntity
+import com.paulopacifico.inventoryservice.inventory.messaging.persistence.InventoryReservationRepository
 import com.paulopacifico.inventoryservice.inventory.messaging.persistence.ProcessedOrderEventEntity
 import com.paulopacifico.inventoryservice.inventory.messaging.persistence.ProcessedOrderEventRepository
 import com.paulopacifico.inventoryservice.messaging.api.InventoryFailedEvent
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 class OrderPlacedSagaConsumer(
     private val inventoryService: InventoryService,
     private val inventorySagaEventPublisher: InventorySagaEventPublisher,
+    private val inventoryReservationRepository: InventoryReservationRepository,
     private val processedOrderEventRepository: ProcessedOrderEventRepository,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -47,6 +50,14 @@ class OrderPlacedSagaConsumer(
                     skuCode = event.skuCode,
                     reservedQuantity = event.quantity,
                     occurredAt = OffsetDateTime.now(ZoneOffset.UTC),
+                ),
+            )
+            inventoryReservationRepository.save(
+                InventoryReservationEntity(
+                    orderId = event.orderId,
+                    skuCode = event.skuCode,
+                    reservedQuantity = event.quantity,
+                    reservedAt = OffsetDateTime.now(ZoneOffset.UTC),
                 ),
             )
         } catch (exception: InsufficientInventoryException) {
