@@ -6,8 +6,9 @@ import com.paulopacifico.orderservice.order.api.OrderResponse;
 import com.paulopacifico.orderservice.order.domain.OrderEntity;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
 import com.paulopacifico.orderservice.order.messaging.OrderPlacedEventPublisher;
-import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -61,10 +62,8 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderResponse> getOrders() {
-        return orderRepository.findAll().stream()
-                .map(orderMapper::toResponse)
-                .toList();
+    public Page<OrderResponse> getOrders(Pageable pageable) {
+        return orderRepository.findAll(pageable).map(orderMapper::toResponse);
     }
 
     @Transactional
