@@ -19,7 +19,7 @@ class InventoryEntity(
     @Column(nullable = false)
     var quantity: Int,
 ) {
-    @Version
+    @field:Version
     var version: Long? = null
 
     fun hasEnoughQuantity(requiredQuantity: Int): Boolean = quantity >= requiredQuantity

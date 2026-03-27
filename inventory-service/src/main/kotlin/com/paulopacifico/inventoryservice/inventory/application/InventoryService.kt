@@ -59,6 +59,7 @@ class InventoryService(
         }
 
         inventory.deduct(requiredQuantity)
+        inventoryRepository.save(inventory)
         logger.info(
             "Reserved inventory for skuCode={} requestedQuantity={} remainingQuantity={}",
             inventory.skuCode,
