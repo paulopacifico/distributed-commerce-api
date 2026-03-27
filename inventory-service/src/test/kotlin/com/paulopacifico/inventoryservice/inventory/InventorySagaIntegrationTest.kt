@@ -3,9 +3,12 @@ package com.paulopacifico.inventoryservice.inventory
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.paulopacifico.inventoryservice.inventory.application.InventoryRepository
 import com.paulopacifico.inventoryservice.inventory.domain.InventoryEntity
+import com.paulopacifico.inventoryservice.inventory.messaging.persistence.InventoryReservationEntity
+import com.paulopacifico.inventoryservice.inventory.messaging.persistence.InventoryReservationRepository
 import com.paulopacifico.inventoryservice.inventory.messaging.persistence.ProcessedOrderEventRepository
 import com.paulopacifico.inventoryservice.messaging.api.InventoryFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.InventoryReservedEvent
+import com.paulopacifico.inventoryservice.messaging.api.OrderFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderPlacedEvent
 import com.paulopacifico.inventoryservice.support.AbstractIntegrationTest
 import io.kotest.assertions.nondeterministic.eventually
@@ -33,6 +36,9 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
     lateinit var inventoryRepository: InventoryRepository
 
     @Autowired
+    lateinit var inventoryReservationRepository: InventoryReservationRepository
+
+    @Autowired
     lateinit var processedOrderEventRepository: ProcessedOrderEventRepository
 
     @Autowired
@@ -48,11 +54,13 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
     init {
         beforeSpec {
             inventoryRepository.deleteAll()
+            inventoryReservationRepository.deleteAll()
             processedOrderEventRepository.deleteAll()
         }
 
         beforeTest {
             inventoryRepository.deleteAll()
+            inventoryReservationRepository.deleteAll()
             processedOrderEventRepository.deleteAll()
         }
 
@@ -136,6 +144,100 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                         )
                     }
                 }
+            }
+        }
+
+        "should publish inventory failed event and leave quantity unchanged when stock is insufficient" {
+            awaitTopicReady("order-placed-topic", "inventory-reserved-topic", "inventory-failed-topic")
+
+            inventoryRepository.saveAndFlush(
+                InventoryEntity(skuCode = "SKU-KT-200", quantity = 2),
+            )
+
+            kafkaConsumer("inventory-service-it").use { consumer ->
+                consumer.subscribe(listOf("inventory-reserved-topic", "inventory-failed-topic"))
+                eventually(30.seconds) {
+                    consumer.poll(java.time.Duration.ofMillis(200))
+                    consumer.assignment().size shouldBeExactly 6
+                }
+                consumer.seekToEnd(consumer.assignment())
+
+                val listenerContainer = requireNotNull(
+                    kafkaListenerEndpointRegistry.getListenerContainer("orderPlacedSagaConsumer"),
+                ) { "Kafka listener container orderPlacedSagaConsumer was not registered" }
+                ContainerTestUtils.waitForAssignment(listenerContainer, 3)
+
+                val orderPlacedEvent = OrderPlacedEvent(
+                    eventId = UUID.randomUUID(),
+                    orderId = 201L,
+                    orderNumber = "ORD-KT-201",
+                    skuCode = "SKU-KT-200",
+                    price = BigDecimal("9.99"),
+                    quantity = 5,
+                    occurredAt = OffsetDateTime.now(ZoneOffset.UTC),
+                )
+                kafkaTemplate.send(
+                    ProducerRecord("order-placed-topic", orderPlacedEvent.orderNumber, kafkaObjectMapper.writeValueAsString(orderPlacedEvent)),
+                ).get()
+
+                val collectedRecords = mutableListOf<ConsumerRecord<String, String>>()
+
+                eventually(30.seconds) {
+                    consumer.poll(java.time.Duration.ofMillis(500)).forEach { collectedRecords.add(it) }
+
+                    val failedRecord = requireNotNull(collectedRecords.firstOrNull { it.topic() == "inventory-failed-topic" }) {
+                        "Expected inventory-failed-topic record but none was published"
+                    }
+                    val failedEvent = kafkaObjectMapper.readValue(failedRecord.value(), InventoryFailedEvent::class.java)
+                    failedEvent.orderId shouldBe 201L
+                    failedEvent.skuCode shouldBe "SKU-KT-200"
+                    failedEvent.requestedQuantity shouldBeExactly 5
+
+                    val unchangedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-200"))
+                    unchangedInventory.quantity shouldBeExactly 2
+
+                    collectedRecords.none { it.topic() == "inventory-reserved-topic" } shouldBe true
+                }
+            }
+        }
+
+        "should release reserved inventory when order fails" {
+            awaitTopicReady("order-failed-topic")
+
+            inventoryRepository.saveAndFlush(
+                InventoryEntity(skuCode = "SKU-KT-300", quantity = 6),
+            )
+            inventoryReservationRepository.saveAndFlush(
+                InventoryReservationEntity(
+                    orderId = 303L,
+                    skuCode = "SKU-KT-300",
+                    reservedQuantity = 4,
+                    reservedAt = OffsetDateTime.now(ZoneOffset.UTC),
+                ),
+            )
+
+            val listenerContainer = requireNotNull(
+                kafkaListenerEndpointRegistry.getListenerContainer("orderFailedSagaConsumer"),
+            ) { "Kafka listener container orderFailedSagaConsumer was not registered" }
+            ContainerTestUtils.waitForAssignment(listenerContainer, 3)
+
+            val orderFailedEvent = OrderFailedEvent(
+                eventId = UUID.randomUUID(),
+                orderId = 303L,
+                orderNumber = "ORD-KT-303",
+                skuCode = "SKU-KT-300",
+                reservedQuantity = 4,
+                reason = "Insufficient stock",
+                occurredAt = OffsetDateTime.now(ZoneOffset.UTC),
+            )
+            kafkaTemplate.send(
+                ProducerRecord("order-failed-topic", orderFailedEvent.orderNumber, kafkaObjectMapper.writeValueAsString(orderFailedEvent)),
+            ).get()
+
+            eventually(30.seconds) {
+                val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-300"))
+                updatedInventory.quantity shouldBeExactly 10
+                inventoryReservationRepository.existsById(303L) shouldBe false
             }
         }
     }
