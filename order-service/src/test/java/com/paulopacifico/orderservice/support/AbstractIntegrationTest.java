@@ -5,13 +5,10 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
@@ -19,19 +16,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
-    @ServiceConnection
     protected static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("order_db")
                     .withUsername("test")
                     .withPassword("test");
 
-    @Container
-    @ServiceConnection
     protected static final KafkaContainer KAFKA =
             new KafkaContainer(
                     DockerImageName.parse("apache/kafka-native:3.8.0")
