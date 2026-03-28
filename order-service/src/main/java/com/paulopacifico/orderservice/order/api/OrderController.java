@@ -1,5 +1,6 @@
 package com.paulopacifico.orderservice.order.api;
 
+import com.paulopacifico.orderservice.order.application.OrderSagaService;
 import com.paulopacifico.orderservice.order.application.OrderService;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -21,9 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderSagaService orderSagaService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, OrderSagaService orderSagaService) {
         this.orderService = orderService;
+        this.orderSagaService = orderSagaService;
     }
 
     @PostMapping
@@ -51,6 +54,6 @@ public class OrderController {
             @PathVariable Long orderId,
             @Valid @RequestBody UpdateOrderStatusRequest request
     ) {
-        return orderService.updateStatus(orderId, request.status());
+        return orderSagaService.updateStatus(orderId, request.status());
     }
 }

@@ -4,7 +4,7 @@ import com.paulopacifico.orderservice.messaging.api.InventoryFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.InventoryReservedEvent;
 import com.paulopacifico.orderservice.order.messaging.persistence.ProcessedInventoryEventEntity;
 import com.paulopacifico.orderservice.order.messaging.persistence.ProcessedInventoryEventRepository;
-import com.paulopacifico.orderservice.order.application.OrderService;
+import com.paulopacifico.orderservice.order.application.OrderSagaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -18,14 +18,14 @@ public class InventorySagaConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(InventorySagaConsumer.class);
 
-    private final OrderService orderService;
+    private final OrderSagaService orderSagaService;
     private final ProcessedInventoryEventRepository processedInventoryEventRepository;
 
     public InventorySagaConsumer(
-            OrderService orderService,
+            OrderSagaService orderSagaService,
             ProcessedInventoryEventRepository processedInventoryEventRepository
     ) {
-        this.orderService = orderService;
+        this.orderSagaService = orderSagaService;
         this.processedInventoryEventRepository = processedInventoryEventRepository;
     }
 
@@ -41,7 +41,7 @@ public class InventorySagaConsumer {
             return;
         }
 
-        orderService.confirmOrder(event.orderId());
+        orderSagaService.confirmOrder(event.orderId());
         processedInventoryEventRepository.save(
                 new ProcessedInventoryEventEntity(
                         event.eventId(),
@@ -64,7 +64,7 @@ public class InventorySagaConsumer {
             return;
         }
 
-        orderService.failOrder(event.orderId(), event.reason());
+        orderSagaService.failOrder(event.orderId(), event.reason());
         processedInventoryEventRepository.save(
                 new ProcessedInventoryEventEntity(
                         event.eventId(),
