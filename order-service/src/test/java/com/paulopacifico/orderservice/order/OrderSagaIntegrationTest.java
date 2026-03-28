@@ -64,21 +64,31 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldFailOrderAndPublishCompensationEventWhenInventoryFails() throws Exception {
+        var order = createPendingOrder("SKU-SAGA-FAIL", 5);
+
+        var failedEvent = new InventoryFailedEvent(
+                UUID.randomUUID(),
+                order.id(),
+                order.orderNumber(),
+                order.skuCode(),
+                order.quantity(),
+                "Insufficient stock",
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        kafkaTemplate.send("inventory-failed-topic", order.orderNumber(), objectMapper.writeValueAsString(failedEvent)).get();
+
+        // Wait for the order to reach FAILED status first. failOrder() publishes the
+        // OrderFailedEvent synchronously (kafkaTemplate.send().get()), so once the status
+        // is FAILED the compensation event is guaranteed to already be in order-failed-topic.
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(30))
+                .untilAsserted(() -> assertThat(getOrder(order.id()).status()).isEqualTo(OrderStatus.FAILED));
+
+        // Subscribe and seekToBeginning to read the record that is now known to exist.
+        // This mirrors how OrderPlacedEventIntegrationTest reads order-placed-topic: read
+        // historical data rather than trying to race seekToEnd against event publication.
+        // Filter by order ID to tolerate any pre-existing records in the topic.
         try (var consumer = kafkaConsumer("order-saga-it")) {
-            // Set up the consumer and anchor its position BEFORE creating any orders.
-            // seekToEnd is lazy: the ListOffsets broker request only fires on the next poll.
-            // If we call seekToEnd after creating the order, the order-service background
-            // listener can process the InventoryFailedEvent and publish the compensation event
-            // in < 100ms — faster than the ListOffsets round-trip in CI. When the first poll
-            // then materializes the seek, the broker reports an end offset past that record and
-            // the consumer permanently misses it.
-            //
-            // The fix is two-fold:
-            //   1. Subscribe and anchor BEFORE the order exists, so no compensation event for
-            //      this order can be in the topic yet.
-            //   2. Call consumer.position(tp) for every assigned partition after seekToEnd.
-            //      position() blocks internally (looping on client.poll) until the ListOffsets
-            //      response comes back, giving us a synchronous, race-free materialization.
             consumer.subscribe(List.of("order-failed-topic"));
             Awaitility.await()
                     .atMost(Duration.ofSeconds(10))
@@ -86,40 +96,27 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                         consumer.poll(Duration.ofMillis(200));
                         return !consumer.assignment().isEmpty();
                     });
-            consumer.seekToEnd(consumer.assignment());
-            for (var tp : consumer.assignment()) {
-                consumer.position(tp); // blocks until ListOffsets response arrives
-            }
-
-            var order = createPendingOrder("SKU-SAGA-FAIL", 5);
-
-            var failedEvent = new InventoryFailedEvent(
-                    UUID.randomUUID(),
-                    order.id(),
-                    order.orderNumber(),
-                    order.skuCode(),
-                    order.quantity(),
-                    "Insufficient stock",
-                    OffsetDateTime.now(ZoneOffset.UTC)
-            );
-            kafkaTemplate.send("inventory-failed-topic", order.orderNumber(), objectMapper.writeValueAsString(failedEvent)).get();
+            consumer.seekToBeginning(consumer.assignment());
 
             var collectedRecords = new ArrayList<String>();
             Awaitility.await()
-                    .atMost(Duration.ofSeconds(30))
+                    .atMost(Duration.ofSeconds(15))
                     .untilAsserted(() -> {
                         consumer.poll(Duration.ofMillis(500)).forEach(r -> collectedRecords.add(r.value()));
 
-                        var updated = getOrder(order.id());
-                        assertThat(updated.status()).isEqualTo(OrderStatus.FAILED);
-                        assertThat(collectedRecords).isNotEmpty();
+                        var compensationEvent = collectedRecords.stream()
+                                .map(v -> {
+                                    try { return objectMapper.readValue(v, OrderFailedEvent.class); }
+                                    catch (Exception e) { return null; }
+                                })
+                                .filter(e -> e != null && order.id().equals(e.orderId()))
+                                .findFirst();
 
-                        var compensationEvent = objectMapper.readValue(collectedRecords.get(0), OrderFailedEvent.class);
-                        assertThat(compensationEvent.orderId()).isEqualTo(order.id());
-                        assertThat(compensationEvent.orderNumber()).isEqualTo(order.orderNumber());
-                        assertThat(compensationEvent.skuCode()).isEqualTo(order.skuCode());
-                        assertThat(compensationEvent.reservedQuantity()).isEqualTo(order.quantity());
-                        assertThat(compensationEvent.reason()).isEqualTo("Insufficient stock");
+                        assertThat(compensationEvent).isPresent();
+                        assertThat(compensationEvent.get().orderNumber()).isEqualTo(order.orderNumber());
+                        assertThat(compensationEvent.get().skuCode()).isEqualTo(order.skuCode());
+                        assertThat(compensationEvent.get().reservedQuantity()).isEqualTo(order.quantity());
+                        assertThat(compensationEvent.get().reason()).isEqualTo("Insufficient stock");
                     });
         }
     }
