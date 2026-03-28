@@ -52,9 +52,8 @@ public class OrderSagaService {
     public void failOrder(Long orderId, String reason) {
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
-        OrderStatus statusBefore = order.getStatus();
-        applyStatusTransition(order, OrderStatus.FAILED);
-        if (statusBefore == OrderStatus.PENDING && order.getStatus() == OrderStatus.FAILED) {
+        boolean transitioned = applyStatusTransition(order, OrderStatus.FAILED);
+        if (transitioned) {
             var event = new OrderFailedEvent(
                     UUID.randomUUID(),
                     order.getId(),
@@ -70,13 +69,13 @@ public class OrderSagaService {
         log.info("Marked order id={} orderNumber={} as FAILED reason={}", order.getId(), order.getOrderNumber(), reason);
     }
 
-    private void applyStatusTransition(OrderEntity order, OrderStatus status) {
+    private boolean applyStatusTransition(OrderEntity order, OrderStatus status) {
         if (order.getStatus() == status) {
             log.info(
                     "Ignoring duplicate order status transition id={} orderNumber={} status={}",
                     order.getId(), order.getOrderNumber(), status
             );
-            return;
+            return false;
         }
 
         if (order.getStatus() != OrderStatus.PENDING) {
@@ -84,7 +83,7 @@ public class OrderSagaService {
                     "Ignoring out-of-order status transition id={} orderNumber={} currentStatus={} requestedStatus={}",
                     order.getId(), order.getOrderNumber(), order.getStatus(), status
             );
-            return;
+            return false;
         }
 
         if (status == OrderStatus.CONFIRMED) {
@@ -94,5 +93,6 @@ public class OrderSagaService {
         }
 
         log.info("Updated order id={} orderNumber={} status={}", order.getId(), order.getOrderNumber(), order.getStatus());
+        return true;
     }
 }
