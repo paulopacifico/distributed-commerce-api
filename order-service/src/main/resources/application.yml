@@ -39,9 +39,20 @@ spring:
     listener:
       ack-mode: record
       missing-topics-fatal: false
+      observation-enabled: true
+    template:
+      observation-enabled: true
 
 server:
   port: ${SERVER_PORT:8081}
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
 
 app:
   kafka:
@@ -52,6 +63,8 @@ app:
       order-failed: ${ORDER_FAILED_TOPIC:order-failed-topic}
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [traceId=%X{traceId:-}, spanId=%X{spanId:-}] %-5level [%t] %logger{50} : %m%n"
   level:
     root: INFO
     com.paulopacifico.orderservice: INFO
