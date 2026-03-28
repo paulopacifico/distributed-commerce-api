@@ -17,6 +17,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import org.apache.kafka.common.TopicPartition;
+
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -84,19 +86,21 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                 .atMost(Duration.ofSeconds(30))
                 .untilAsserted(() -> assertThat(getOrder(order.id()).status()).isEqualTo(OrderStatus.FAILED));
 
-        // Subscribe and seekToBeginning to read the record that is now known to exist.
-        // This mirrors how OrderPlacedEventIntegrationTest reads order-placed-topic: read
-        // historical data rather than trying to race seekToEnd against event publication.
-        // Filter by order ID to tolerate any pre-existing records in the topic.
+        // Use manual partition assignment and seek(tp, 0) to read from the beginning.
+        // seek(tp, offset) sets the fetch position DIRECTLY in the subscription state —
+        // no ListOffsets network round-trip, no lazy materialization, no race conditions.
+        // This is categorically more reliable than seekToBeginning() for reading a record
+        // that is known to already exist in the topic.
+        var partitions = List.of(
+                new TopicPartition("order-failed-topic", 0),
+                new TopicPartition("order-failed-topic", 1),
+                new TopicPartition("order-failed-topic", 2)
+        );
         try (var consumer = kafkaConsumer("order-saga-it")) {
-            consumer.subscribe(List.of("order-failed-topic"));
-            Awaitility.await()
-                    .atMost(Duration.ofSeconds(10))
-                    .until(() -> {
-                        consumer.poll(Duration.ofMillis(200));
-                        return !consumer.assignment().isEmpty();
-                    });
-            consumer.seekToBeginning(consumer.assignment());
+            consumer.assign(partitions);
+            for (var tp : partitions) {
+                consumer.seek(tp, 0L);
+            }
 
             var collectedRecords = new ArrayList<String>();
             Awaitility.await()
@@ -104,12 +108,19 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                     .untilAsserted(() -> {
                         consumer.poll(Duration.ofMillis(500)).forEach(r -> collectedRecords.add(r.value()));
 
+                        assertThat(collectedRecords)
+                                .withFailMessage("No records received from order-failed-topic")
+                                .isNotEmpty();
+
                         var compensationEvent = collectedRecords.stream()
                                 .map(v -> {
-                                    try { return objectMapper.readValue(v, OrderFailedEvent.class); }
-                                    catch (Exception e) { return null; }
+                                    try {
+                                        return objectMapper.readValue(v, OrderFailedEvent.class);
+                                    } catch (Exception e) {
+                                        throw new AssertionError("Failed to deserialize OrderFailedEvent: " + v, e);
+                                    }
                                 })
-                                .filter(e -> e != null && order.id().equals(e.orderId()))
+                                .filter(e -> order.id().equals(e.orderId()))
                                 .findFirst();
 
                         assertThat(compensationEvent).isPresent();
