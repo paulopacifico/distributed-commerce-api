@@ -75,12 +75,6 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                         return !consumer.assignment().isEmpty();
                     });
             consumer.seekToEnd(consumer.assignment());
-            // Force seekToEnd to materialize before we send any events. seekToEnd is lazy:
-            // it doesn't fetch the broker's end offset until the next poll. Without this,
-            // the first poll in the collection loop below materializes it after the
-            // compensation event is already published, positioning the consumer past the
-            // record we want to read.
-            consumer.poll(Duration.ofMillis(0));
 
             var failedEvent = new InventoryFailedEvent(
                     UUID.randomUUID(),
@@ -93,18 +87,20 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
             );
             kafkaTemplate.send("inventory-failed-topic", order.orderNumber(), objectMapper.writeValueAsString(failedEvent)).get();
 
+            // Accumulate records and check all assertions in a single block so that:
+            // 1. The consumer polls throughout the wait, materializing seekToEnd on the very
+            //    first iteration (before the compensation event is processed), avoiding the
+            //    race where a separate "wait-for-FAILED" block completes before we start polling
+            //    and seekToEnd then lands past the record we want.
+            // 2. Records polled in early iterations (before assertions pass) are not lost.
+            var collectedRecords = new ArrayList<String>();
             Awaitility.await()
                     .atMost(Duration.ofSeconds(30))
                     .untilAsserted(() -> {
+                        consumer.poll(Duration.ofMillis(500)).forEach(r -> collectedRecords.add(r.value()));
+
                         var updated = getOrder(order.id());
                         assertThat(updated.status()).isEqualTo(OrderStatus.FAILED);
-                    });
-
-            var collectedRecords = new ArrayList<String>();
-            Awaitility.await()
-                    .atMost(Duration.ofSeconds(15))
-                    .untilAsserted(() -> {
-                        consumer.poll(Duration.ofMillis(500)).forEach(r -> collectedRecords.add(r.value()));
                         assertThat(collectedRecords).isNotEmpty();
 
                         var compensationEvent = objectMapper.readValue(collectedRecords.get(0), OrderFailedEvent.class);
