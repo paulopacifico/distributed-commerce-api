@@ -75,6 +75,12 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                         return !consumer.assignment().isEmpty();
                     });
             consumer.seekToEnd(consumer.assignment());
+            // Force seekToEnd to materialize before we send any events. seekToEnd is lazy:
+            // it doesn't fetch the broker's end offset until the next poll. Without this,
+            // the first poll in the collection loop below materializes it after the
+            // compensation event is already published, positioning the consumer past the
+            // record we want to read.
+            consumer.poll(Duration.ofMillis(0));
 
             var failedEvent = new InventoryFailedEvent(
                     UUID.randomUUID(),
