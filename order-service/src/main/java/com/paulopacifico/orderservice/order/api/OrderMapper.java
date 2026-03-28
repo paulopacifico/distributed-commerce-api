@@ -51,6 +51,8 @@ public class OrderMapper {
                 UUID.randomUUID(),
                 entity.getId(),
                 entity.getOrderNumber(),
+                entity.getPrice(),
+                entity.getQuantity(),
                 OffsetDateTime.now(ZoneOffset.UTC)
         );
     }
