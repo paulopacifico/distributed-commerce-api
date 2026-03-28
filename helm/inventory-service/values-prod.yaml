@@ -1,0 +1,23 @@
+replicaCount: 2
+
+image:
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+config:
+  kafkaBootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS}"
+  dbUrl: "${INVENTORY_DB_URL}"
+  zipkinEndpoint: "${ZIPKIN_ENDPOINT}"
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70

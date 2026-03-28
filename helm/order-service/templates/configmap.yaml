@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "order-service.fullname" . }}
+  labels:
+    {{- include "order-service.labels" . | nindent 4 }}
+data:
+  SERVER_PORT: {{ .Values.config.serverPort | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafkaBootstrapServers | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.config.kafkaConsumerGroup | quote }}
+  ZIPKIN_ENDPOINT: {{ .Values.config.zipkinEndpoint | quote }}
+  ORDER_DB_URL: {{ .Values.config.dbUrl | quote }}
+  ORDER_PLACED_TOPIC: {{ .Values.config.topics.orderPlaced | quote }}
+  INVENTORY_RESERVED_TOPIC: {{ .Values.config.topics.inventoryReserved | quote }}
+  INVENTORY_FAILED_TOPIC: {{ .Values.config.topics.inventoryFailed | quote }}
+  ORDER_FAILED_TOPIC: {{ .Values.config.topics.orderFailed | quote }}

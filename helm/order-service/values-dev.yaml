@@ -1,0 +1,17 @@
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+config:
+  kafkaBootstrapServers: "kafka:9092"
+  dbUrl: "jdbc:postgresql://postgres:5432/order_db"
+  zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
+
+hpa:
+  enabled: false

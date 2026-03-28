@@ -1,0 +1,54 @@
+image:
+  repository: inventory-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8082
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+config:
+  serverPort: "8082"
+  kafkaBootstrapServers: "kafka:9092"
+  kafkaConsumerGroup: "inventory-service"
+  zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
+  dbUrl: "jdbc:postgresql://postgres:5432/inventory_db"
+  topics:
+    orderPlaced: "order-placed-topic"
+    inventoryReserved: "inventory-reserved-topic"
+    inventoryFailed: "inventory-failed-topic"
+    orderFailed: "order-failed-topic"
+
+# Sensitive values — never commit real credentials.
+# Supply at deploy time via: --set secret.dbUsername=... --set secret.dbPassword=...
+secret:
+  dbUsername: ""
+  dbPassword: ""
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /actuator/health
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3

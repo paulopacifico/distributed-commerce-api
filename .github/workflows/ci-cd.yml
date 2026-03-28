@@ -63,9 +63,21 @@ jobs:
       - name: Build Docker image for inventory-service
         run: docker build -t inventory-service:ci ./inventory-service
 
-      - name: Simulate K8s Deployment
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.0
+
+      - name: Lint Helm charts
         run: |
-          # In a real pipeline, this stage would push images to AWS ECR
-          # and then trigger a Kubernetes deployment update via Helm/kubectl.
-          echo "Deploying to AWS EKS via kubectl..."
-          echo "Updating Helm charts..."
+          helm lint helm/order-service     -f helm/order-service/values-dev.yaml
+          helm lint helm/order-service     -f helm/order-service/values-prod.yaml
+          helm lint helm/inventory-service -f helm/inventory-service/values-dev.yaml
+          helm lint helm/inventory-service -f helm/inventory-service/values-prod.yaml
+
+      - name: Template Helm charts (dry-run render)
+        run: |
+          helm template order-service     helm/order-service     -f helm/order-service/values-dev.yaml     --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template order-service     helm/order-service     -f helm/order-service/values-prod.yaml    --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template inventory-service helm/inventory-service -f helm/inventory-service/values-dev.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template inventory-service helm/inventory-service -f helm/inventory-service/values-prod.yaml --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
