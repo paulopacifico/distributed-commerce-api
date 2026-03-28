@@ -64,9 +64,21 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldFailOrderAndPublishCompensationEventWhenInventoryFails() throws Exception {
-        var order = createPendingOrder("SKU-SAGA-FAIL", 5);
-
         try (var consumer = kafkaConsumer("order-saga-it")) {
+            // Set up the consumer and anchor its position BEFORE creating any orders.
+            // seekToEnd is lazy: the ListOffsets broker request only fires on the next poll.
+            // If we call seekToEnd after creating the order, the order-service background
+            // listener can process the InventoryFailedEvent and publish the compensation event
+            // in < 100ms — faster than the ListOffsets round-trip in CI. When the first poll
+            // then materializes the seek, the broker reports an end offset past that record and
+            // the consumer permanently misses it.
+            //
+            // The fix is two-fold:
+            //   1. Subscribe and anchor BEFORE the order exists, so no compensation event for
+            //      this order can be in the topic yet.
+            //   2. Call consumer.position(tp) for every assigned partition after seekToEnd.
+            //      position() blocks internally (looping on client.poll) until the ListOffsets
+            //      response comes back, giving us a synchronous, race-free materialization.
             consumer.subscribe(List.of("order-failed-topic"));
             Awaitility.await()
                     .atMost(Duration.ofSeconds(10))
@@ -75,6 +87,11 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                         return !consumer.assignment().isEmpty();
                     });
             consumer.seekToEnd(consumer.assignment());
+            for (var tp : consumer.assignment()) {
+                consumer.position(tp); // blocks until ListOffsets response arrives
+            }
+
+            var order = createPendingOrder("SKU-SAGA-FAIL", 5);
 
             var failedEvent = new InventoryFailedEvent(
                     UUID.randomUUID(),
@@ -87,12 +104,6 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
             );
             kafkaTemplate.send("inventory-failed-topic", order.orderNumber(), objectMapper.writeValueAsString(failedEvent)).get();
 
-            // Accumulate records and check all assertions in a single block so that:
-            // 1. The consumer polls throughout the wait, materializing seekToEnd on the very
-            //    first iteration (before the compensation event is processed), avoiding the
-            //    race where a separate "wait-for-FAILED" block completes before we start polling
-            //    and seekToEnd then lands past the record we want.
-            // 2. Records polled in early iterations (before assertions pass) are not lost.
             var collectedRecords = new ArrayList<String>();
             Awaitility.await()
                     .atMost(Duration.ofSeconds(30))
