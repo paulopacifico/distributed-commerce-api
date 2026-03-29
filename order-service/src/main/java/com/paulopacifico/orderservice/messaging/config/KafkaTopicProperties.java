@@ -7,6 +7,9 @@ public record KafkaTopicProperties(
         String orderPlaced,
         String inventoryReserved,
         String inventoryFailed,
-        String orderFailed
+        String orderFailed,
+        String orderConfirmed,
+        String paymentSucceeded,
+        String paymentFailed
 ) {
 }
