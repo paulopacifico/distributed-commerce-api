@@ -96,4 +96,12 @@ public class OrderEntity {
     public void fail() {
         this.status = OrderStatus.FAILED;
     }
+
+    public void pay() {
+        this.status = OrderStatus.PAID;
+    }
+
+    public void failPayment() {
+        this.status = OrderStatus.PAYMENT_FAILED;
+    }
 }
