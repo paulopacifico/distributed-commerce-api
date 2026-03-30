@@ -3,8 +3,11 @@ package com.paulopacifico.orderservice.order;
 import com.paulopacifico.orderservice.messaging.api.InventoryFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.InventoryReservedEvent;
 import com.paulopacifico.orderservice.messaging.api.OrderFailedEvent;
+import com.paulopacifico.orderservice.messaging.api.PaymentFailedEvent;
+import com.paulopacifico.orderservice.messaging.api.PaymentSucceededEvent;
 import com.paulopacifico.orderservice.order.api.CreateOrderRequest;
 import com.paulopacifico.orderservice.order.api.OrderResponse;
+import com.paulopacifico.orderservice.order.application.OrderRepository;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
 import com.paulopacifico.orderservice.support.AbstractIntegrationTest;
 import org.awaitility.Awaitility;
@@ -41,6 +44,92 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Test
+    void shouldMarkOrderAsPaidWhenPaymentSucceeds() throws Exception {
+        // Create an order via HTTP
+        var response = testRestTemplate.postForEntity(
+                "http://localhost:" + port + "/api/orders",
+                new CreateOrderRequest("SKU-PAY-200", new BigDecimal("29.99"), 2),
+                String.class
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        var orderResponse = objectMapper.readValue(response.getBody(), OrderResponse.class);
+        Long orderId = orderResponse.id();
+        String orderNumber = orderResponse.orderNumber();
+
+        // Manually transition to CONFIRMED (simulating inventory reservation)
+        var order = orderRepository.findById(orderId).orElseThrow();
+        order.confirm();
+        orderRepository.save(order);
+
+        // Publish PaymentSucceededEvent
+        var event = new PaymentSucceededEvent(
+                UUID.randomUUID(),
+                orderId,
+                orderNumber,
+                new BigDecimal("59.98"),
+                OffsetDateTime.now()
+        );
+        kafkaTemplate.send(
+                "payment-succeeded-topic",
+                orderNumber,
+                objectMapper.writeValueAsString(event)
+        ).get();
+
+        // Assert order transitions to PAID
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(15))
+                .untilAsserted(() -> {
+                    var updated = orderRepository.findById(orderId).orElseThrow();
+                    assertThat(updated.getStatus()).isEqualTo(OrderStatus.PAID);
+                });
+    }
+
+    @Test
+    void shouldMarkOrderAsPaymentFailedWhenPaymentFails() throws Exception {
+        // Create an order via HTTP
+        var response = testRestTemplate.postForEntity(
+                "http://localhost:" + port + "/api/orders",
+                new CreateOrderRequest("SKU-PAY-300", new BigDecimal("15.00"), 1),
+                String.class
+        );
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        var orderResponse = objectMapper.readValue(response.getBody(), OrderResponse.class);
+        Long orderId = orderResponse.id();
+        String orderNumber = orderResponse.orderNumber();
+
+        // Manually transition to CONFIRMED
+        var order = orderRepository.findById(orderId).orElseThrow();
+        order.confirm();
+        orderRepository.save(order);
+
+        // Publish PaymentFailedEvent
+        var event = new PaymentFailedEvent(
+                UUID.randomUUID(),
+                orderId,
+                orderNumber,
+                new BigDecimal("15.00"),
+                "Simulated payment failure",
+                OffsetDateTime.now()
+        );
+        kafkaTemplate.send(
+                "payment-failed-topic",
+                orderNumber,
+                objectMapper.writeValueAsString(event)
+        ).get();
+
+        // Assert order transitions to PAYMENT_FAILED
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(15))
+                .untilAsserted(() -> {
+                    var updated = orderRepository.findById(orderId).orElseThrow();
+                    assertThat(updated.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+                });
+    }
 
     @Test
     void shouldConfirmOrderWhenInventoryIsReserved() throws Exception {
