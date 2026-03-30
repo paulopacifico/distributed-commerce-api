@@ -10,6 +10,7 @@ import com.paulopacifico.inventoryservice.messaging.api.InventoryFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.InventoryReservedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderPlacedEvent
+import com.paulopacifico.inventoryservice.messaging.api.PaymentFailedEvent
 import com.paulopacifico.inventoryservice.support.AbstractIntegrationTest
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.matchers.ints.shouldBeExactly
@@ -238,6 +239,45 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                 val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-300"))
                 updatedInventory.quantity shouldBeExactly 10
                 inventoryReservationRepository.existsById(303L) shouldBe false
+            }
+        }
+
+        "should release reserved inventory when payment fails" {
+            awaitTopicReady("payment-failed-topic")
+
+            inventoryRepository.saveAndFlush(
+                InventoryEntity(skuCode = "SKU-KT-400", quantity = 5),
+            )
+            inventoryReservationRepository.saveAndFlush(
+                InventoryReservationEntity(
+                    orderId = 404L,
+                    skuCode = "SKU-KT-400",
+                    reservedQuantity = 3,
+                    reservedAt = OffsetDateTime.now(ZoneOffset.UTC),
+                ),
+            )
+
+            val listenerContainer = requireNotNull(
+                kafkaListenerEndpointRegistry.getListenerContainer("paymentFailedSagaConsumer"),
+            ) { "Kafka listener container paymentFailedSagaConsumer was not registered" }
+            ContainerTestUtils.waitForAssignment(listenerContainer, 3)
+
+            val paymentFailedEvent = PaymentFailedEvent(
+                eventId = UUID.randomUUID(),
+                orderId = 404L,
+                orderNumber = "ORD-KT-404",
+                amount = java.math.BigDecimal("49.95"),
+                reason = "Insufficient funds",
+                occurredAt = OffsetDateTime.now(ZoneOffset.UTC),
+            )
+            kafkaTemplate.send(
+                ProducerRecord("payment-failed-topic", paymentFailedEvent.orderNumber, kafkaObjectMapper.writeValueAsString(paymentFailedEvent)),
+            ).get()
+
+            eventually(30.seconds) {
+                val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-400"))
+                updatedInventory.quantity shouldBeExactly 8
+                inventoryReservationRepository.existsById(404L) shouldBe false
             }
         }
     }
