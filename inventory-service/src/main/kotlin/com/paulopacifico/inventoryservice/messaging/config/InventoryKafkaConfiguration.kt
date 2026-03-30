@@ -122,4 +122,8 @@ class InventoryKafkaConfiguration {
     @Bean
     fun orderFailedTopic(topics: KafkaTopicProperties): NewTopic =
         TopicBuilder.name(topics.orderFailed).partitions(3).replicas(1).build()
+
+    @Bean
+    fun paymentFailedTopic(topics: KafkaTopicProperties): NewTopic =
+        TopicBuilder.name(topics.paymentFailed).partitions(3).replicas(1).build()
 }
