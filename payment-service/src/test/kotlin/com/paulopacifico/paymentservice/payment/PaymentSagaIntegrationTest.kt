@@ -48,6 +48,12 @@ class PaymentSagaIntegrationTest : AbstractIntegrationTest() {
                     consumer.assignment().size shouldBeExactly 6
                 }
                 consumer.seekToEnd(consumer.assignment())
+                // Force the lazy seekToEnd to resolve its LIST_OFFSETS request now,
+                // while payment-succeeded-topic is still empty (HWM=0). Without this,
+                // the seek is applied lazily in the first poll of the eventually block,
+                // at which point the PaymentSucceededEvent may already be at offset 0
+                // causing the HWM to be 1 and the consumer to skip the event.
+                consumer.poll(Duration.ofMillis(500))
 
                 ContainerTestUtils.waitForAssignment(
                     kafkaListenerEndpointRegistry.getListenerContainer("orderConfirmedSagaConsumer")!!,
