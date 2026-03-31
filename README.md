@@ -1,46 +1,127 @@
-# Event-Driven Polyglot Order Management System
+# Event-Driven Distributed Commerce API
 
-An event-driven Order Management System (OMS) built as a portfolio project to demonstrate distributed systems design, polyglot service development, and production-minded engineering practices for modern backend teams.
+A production-minded, polyglot Order Management System built to demonstrate senior-level distributed systems design. Three independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, and payment processing — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
 
-The project models a realistic commerce workflow in which order creation and inventory reservation are coordinated through Apache Kafka using the Choreography Saga Pattern. The result is a resilient, loosely coupled architecture designed for eventual consistency, service autonomy, and operational clarity.
+---
 
 ## Why This Project
 
-This repository is designed to showcase the kind of decisions expected from a Senior Software Engineer:
+This repository targets the decisions expected from a **Senior Software Engineer** in a modern backend team:
 
-- decomposing business capabilities into independently deployable services
-- using Java and Kotlin where each language is a good fit
-- applying choreography-based sagas instead of tight synchronous coupling
-- protecting service boundaries with DTOs, dedicated event contracts, and idempotent consumers
-- building for reliability with Flyway migrations, structured error handling, and integration testing
+- **Saga compensation, not just happy paths** — when payment fails, the system automatically releases the previously reserved inventory. No orchestrator. No shared state. Just well-designed event contracts.
+- **Polyglot by design** — Order Service in Java 21; Inventory and Payment services in Kotlin 2.1.10. The language choice follows the team, not a rule.
+- **Production-grade from the start** — Flyway migrations, idempotent consumers, structured observability, Helm charts for Kubernetes, and a full CI/CD pipeline. Nothing is left as a "nice to have."
+- **Database-per-service** — each service owns its schema. No shared tables, no shared connections.
+- **Independently testable** — every service has integration tests using real databases and real Kafka brokers via Testcontainers. No mocks at the infrastructure boundary.
+
+---
+
+## Engineering Highlights
+
+### Choreography Saga with Compensation
+The full saga spans three services and six Kafka topics. When payment fails, a `PaymentFailedEvent` triggers inventory to release its reservation — restoring the system to a clean state with no central coordinator. The failure path is as well-tested as the happy path.
+
+### Idempotent Kafka Consumers
+Every consumer maintains a `processed_*_events` table keyed on the event UUID. Kafka redeliveries are safely absorbed without side effects. This pattern is applied identically across all three services.
+
+### Polyglot Architecture
+The Order Service is written in Java 21 using records, sealed types, and Spring Boot idioms. The Inventory and Payment services are written in Kotlin 2.1.10 using data classes, extension functions, and Kotest for expressive tests. Each language is used where it fits the team writing it.
+
+### Distributed Tracing
+All three services are instrumented with **Micrometer Tracing + Brave** and report spans to **Zipkin** at 100% sampling. The local environment ships with a Zipkin container — cross-service saga traces are visible out of the box.
+
+### Helm Charts for Kubernetes
+Each service has a production-ready Helm chart with separate `dev` and `prod` value overrides, HPA configuration, liveness/readiness probes, a Kubernetes `Secret` for database credentials, and a `ConfigMap` for environment-specific settings.
+
+### Full CI/CD Pipeline
+GitHub Actions runs on every push and pull request: Maven build and Testcontainers integration tests for all three services, Docker image builds, and Helm `lint` + `template` dry-runs for all six value combinations. The pipeline fails fast on any of these gates.
+
+### Strict Event Contracts
+Kafka event payloads are defined as dedicated Java records and Kotlin data classes — never JPA entities. The persistence model never leaks into the event bus.
+
+---
 
 ## Architecture
 
-**Architecture diagram placeholder**
-
 ```mermaid
 flowchart LR
-    Client["Client / API Consumer"] --> Order["Order Service<br/>Java 21 + Spring Boot"]
-    Order --> OrderDB[("PostgreSQL<br/>order_db")]
-    Order -->|publish OrderPlacedEvent| Kafka["Apache Kafka"]
-    Kafka -->|consume order-placed-topic| Inventory["Inventory Service<br/>Kotlin + Spring Boot"]
-    Inventory --> InventoryDB[("PostgreSQL<br/>inventory_db")]
-    Inventory -->|publish InventoryReservedEvent| Kafka
-    Inventory -->|publish InventoryFailedEvent| Kafka
-    Kafka -->|consume inventory-reserved-topic| Order
-    Kafka -->|consume inventory-failed-topic| Order
+    Client["Client\n/api/orders"]
+
+    Order["Order Service\nJava 21 · :8081"]
+    OrderDB[("order_db")]
+
+    Inventory["Inventory Service\nKotlin · :8082"]
+    InvDB[("inventory_db")]
+
+    Payment["Payment Service\nKotlin · :8083"]
+    PayDB[("payment_db")]
+
+    Kafka{{"Apache Kafka\n6 topics · 3 partitions each"}}
+    Zipkin["Zipkin\n:9411"]
+
+    Client --> Order
+    Order --- OrderDB
+    Inventory --- InvDB
+    Payment --- PayDB
+
+    Order -->|"① OrderPlacedEvent"| Kafka
+    Kafka -->|"② order-placed-topic"| Inventory
+    Inventory -->|"③ InventoryReserved / Failed"| Kafka
+    Kafka -->|"④ inventory-*-topic"| Order
+    Order -->|"⑤ OrderConfirmedEvent"| Kafka
+    Kafka -->|"⑥ order-confirmed-topic"| Payment
+    Payment -->|"⑦ PaymentSucceeded / Failed"| Kafka
+    Kafka -->|"⑧ payment-*-topic"| Order
+    Kafka -->|"⑨ payment-failed-topic\n↩ compensation"| Inventory
+
+    Order -. traces .-> Zipkin
+    Inventory -. traces .-> Zipkin
+    Payment -. traces .-> Zipkin
 ```
 
-### Flow Description
+---
 
-1. A client creates an order through the Order Service REST API.
-2. The Order Service persists the order as `PENDING` and publishes an `OrderPlacedEvent`.
-3. The Inventory Service consumes that event, validates stock, and attempts the reservation.
-4. If inventory is available, the Inventory Service deducts stock and publishes `InventoryReservedEvent`.
-5. If inventory is insufficient, the Inventory Service publishes `InventoryFailedEvent`.
-6. The Order Service consumes the inventory outcome and transitions the order to `CONFIRMED` or `FAILED`.
+## The Full Saga
 
-This choreography-based flow avoids a central orchestrator and keeps each service responsible for its own business rules and persistence. The trade-off is higher emphasis on event contracts, idempotency, and observability, which mirrors real-world distributed system design.
+### Happy path — order placed, inventory reserved, payment succeeds
+
+| Step | Actor | Action | Outcome |
+|------|-------|--------|---------|
+| 1 | Client | `POST /api/orders` | — |
+| 2 | Order Service | Persists order as `PENDING`, publishes `OrderPlacedEvent` | → `order-placed-topic` |
+| 3 | Inventory Service | Validates stock, deducts reservation | — |
+| 4 | Inventory Service | Publishes `InventoryReservedEvent` | → `inventory-reserved-topic` |
+| 5 | Order Service | Transitions to `CONFIRMED`, publishes `OrderConfirmedEvent` | → `order-confirmed-topic` |
+| 6 | Payment Service | Processes charge, publishes `PaymentSucceededEvent` | → `payment-succeeded-topic` |
+| 7 | Order Service | Transitions to `PAID` | — |
+
+### Failure path A — insufficient inventory
+
+| Step | Actor | Action | Outcome |
+|------|-------|--------|---------|
+| 3 | Inventory Service | Insufficient stock | — |
+| 4 | Inventory Service | Publishes `InventoryFailedEvent` | → `inventory-failed-topic` |
+| 5 | Order Service | Transitions to `FAILED` | — |
+
+### Failure path B — payment declined (saga compensation)
+
+| Step | Actor | Action | Outcome |
+|------|-------|--------|---------|
+| 6 | Payment Service | Charge declined, publishes `PaymentFailedEvent` | → `payment-failed-topic` |
+| 7a | Order Service | Transitions to `PAYMENT_FAILED` | — |
+| 7b | Inventory Service | Consumes `payment-failed-topic`, releases reservation | Compensation complete |
+
+---
+
+## Services
+
+| Service | Language | Port | Database | Responsibility |
+|---------|----------|------|----------|----------------|
+| `order-service` | Java 21 + Spring Boot 3.4.3 | 8081 | `order_db` | REST entry point, saga orchestration state machine |
+| `inventory-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8082 | `inventory_db` | Stock reservation and release |
+| `payment-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8083 | `payment_db` | Charge processing and outcome publishing |
+
+---
 
 ## Tech Stack
 
@@ -50,28 +131,40 @@ This choreography-based flow avoids a central orchestrator and keeps each servic
 ![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm-0F1689?style=for-the-badge&logo=helm&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
+
+---
 
 ## Repository Structure
 
 ```text
 .
-├── docker-compose.yml
+├── docker-compose.yml                  # Full local stack: Postgres, Kafka, Kafka UI, Zipkin
 ├── docker/
-│   └── postgres/init/01-create-databases.sql
-├── order-service/
-│   ├── src/main/java
-│   ├── src/main/resources/db/migration
-│   └── src/test/java
-└── inventory-service/
-    ├── src/main/kotlin
-    ├── src/main/resources/db/migration
-    └── src/test/kotlin
+│   └── postgres/init/
+│       └── 01-create-databases.sql     # Initialises order_db, inventory_db, payment_db
+├── helm/
+│   ├── order-service/                  # Helm chart: deployment, service, HPA, secret, configmap
+│   ├── inventory-service/
+│   └── payment-service/
+├── order-service/                      # Java 21 · Spring Boot
+│   ├── src/main/java/
+│   └── src/main/resources/db/migration/
+├── inventory-service/                  # Kotlin · Spring Boot
+│   ├── src/main/kotlin/
+│   └── src/main/resources/db/migration/
+└── payment-service/                    # Kotlin · Spring Boot
+    ├── src/main/kotlin/
+    └── src/main/resources/db/migration/
 ```
+
+---
 
 ## How to Run Locally
 
-### 1. Start infrastructure
+### 1. Start the infrastructure
 
 ```bash
 docker compose up -d
@@ -79,90 +172,101 @@ docker compose up -d
 
 This starts:
 
-- PostgreSQL on `localhost:5432`
-- Kafka in KRaft mode on `localhost:9094`
-- Kafka UI on `http://localhost:8080`
+| Container | URL | Purpose |
+|-----------|-----|---------|
+| PostgreSQL | `localhost:5432` | Three logical databases (`order_db`, `inventory_db`, `payment_db`) |
+| Kafka (KRaft) | `localhost:9094` | Message broker, topics auto-created on first use |
+| Kafka UI | `http://localhost:8080` | Browse topics, consumer groups, and message payloads |
+| Zipkin | `http://localhost:9411` | Distributed trace viewer across all three services |
 
-The PostgreSQL container initializes two logical databases:
-
-- `order_db`
-- `inventory_db`
-
-### 2. Run the Order Service
+### 2. Start the services (each in a separate terminal)
 
 ```bash
-cd order-service
-mvn spring-boot:run
+# Terminal 1
+cd order-service && mvn spring-boot:run
+
+# Terminal 2
+cd inventory-service && mvn spring-boot:run
+
+# Terminal 3
+cd payment-service && mvn spring-boot:run
 ```
 
-The Order Service starts on `http://localhost:8081`.
-
-### 3. Run the Inventory Service
+### 3. Seed inventory
 
 ```bash
-cd inventory-service
-mvn spring-boot:run
+curl -s -X POST http://localhost:8082/api/inventory \
+  -H "Content-Type: application/json" \
+  -d '{"productId": 1, "quantity": 100}'
 ```
 
-The Inventory Service starts on `http://localhost:8082`.
-
-### 4. Verify the saga flow
-
-1. Create inventory through the Inventory Service.
-2. Create an order through the Order Service.
-3. Inspect Kafka topics in Kafka UI.
-4. Confirm the order status transitions based on inventory availability.
-
-## Testing & CI/CD Strategy
-
-### Testing Approach
-
-- unit tests validate service-layer business logic in both Java and Kotlin
-- integration tests use Testcontainers with PostgreSQL and Kafka for realistic local verification
-- Awaitility is used for asynchronous assertions in the Java service
-- Kotest and MockK are used for idiomatic Kotlin integration coverage in the Inventory Service
-- `Thread.sleep()` is intentionally avoided in favor of deterministic polling-based assertions
-
-### Local Test Modes
-
-Use the full test suite when Docker is available locally:
+### 4. Place an order and trace the saga
 
 ```bash
-cd order-service && mvn test
-cd ../inventory-service && mvn test
+curl -s -X POST http://localhost:8081/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"productId": 1, "quantity": 2, "price": 49.99}'
 ```
 
-Use the unit-only path when Docker/Testcontainers is unavailable:
+Then:
+- **Kafka UI** (`http://localhost:8080`) — inspect events flowing through all six topics
+- **Zipkin** (`http://localhost:9411`) — view the distributed trace spanning all three services
+- **Order status** — `GET http://localhost:8081/api/orders/{id}` should reach `PAID`
+
+---
+
+## Testing
+
+### Strategy
+
+Each service has two test layers:
+
+| Layer | Scope | Tools |
+|-------|-------|-------|
+| Unit tests | Service-layer business logic in isolation | JUnit 5 / Kotest + MockK |
+| Integration tests | Full consumer → service → producer flow against real infrastructure | Testcontainers (PostgreSQL 16, Kafka native 3.8.0) |
+
+All async assertions use condition-based polling. `Thread.sleep()` does not appear in the test suite.
+
+### Patterns worth noting
+
+- **Idempotency tested explicitly** — `PaymentSagaIntegrationTest` delivers the same `OrderConfirmedEvent` twice and asserts exactly one payment record is persisted.
+- **Compensation tested explicitly** — `InventorySagaIntegrationTest` verifies that a `PaymentFailedEvent` releases a previously reserved stock quantity.
+- **Isolated Spring contexts** — the payment-service success and failure scenarios each run in their own `@SpringBootTest` context with a unique Kafka consumer group, ensuring partition ownership and no cross-context interference.
+
+### Running the tests
 
 ```bash
-cd order-service && mvn test -DskipIntegrationTests
-cd ../inventory-service && mvn test -DskipIntegrationTests
+# Run all tests (requires Docker)
+cd order-service     && mvn test
+cd inventory-service && mvn test
+cd payment-service   && mvn test
+
+# Unit tests only (no Docker required)
+cd order-service     && mvn test -DskipIntegrationTests
+cd inventory-service && mvn test -DskipIntegrationTests
+cd payment-service   && mvn test -DskipIntegrationTests
 ```
 
-The `skipIntegrationTests` profile excludes the Testcontainers-based integration specs while keeping the service-layer unit tests active in both modules.
+---
 
-### CI/CD Strategy
+## CI/CD
 
-The intended CI/CD workflow for this project is GitHub Actions, focused on the delivery practices expected in senior backend environments:
+The GitHub Actions workflow (`Polyglot CI/CD`) runs on every push to `main`/`develop` and on every pull request targeting `main`.
 
-- build and test both services on every push and pull request
-- run Flyway-backed integration tests with Testcontainers
-- build Docker images for the Java and Kotlin services
-- validate the Docker Compose stack as a deployment simulation step
+**Pipeline stages:**
 
-The repository includes a GitHub Actions workflow that runs the Maven test/build pipeline, pre-pulls the Testcontainers images used by both services, builds Docker images, and finishes with a mock deployment stage.
+1. **Pre-pull Testcontainers images** — `postgres:16-alpine` and `apache/kafka-native:3.8.0` are pulled before any service builds to avoid cold-start timeouts.
+2. **Build and test** — `mvn clean verify` for all three services with the `test` Spring profile active.
+3. **Docker image build** — each service image is built from its multi-stage `Dockerfile`.
+4. **Helm lint** — all six value combinations (`dev` + `prod` × three services) are linted.
+5. **Helm template dry-run** — all six combinations are rendered to catch template errors without a cluster.
 
-## Engineering Highlights
+Test reports are uploaded as artifacts on failure for post-mortem analysis.
 
-- Choreography Saga Pattern for distributed transaction coordination
-- idempotent Kafka consumers to reduce duplicate-event risk
-- Java records and Kotlin data classes for clear API and event contracts
-- Flyway migrations for explicit schema versioning
-- global exception handling in both services
-- strict separation between persistence models and external contracts
+---
 
 ## Next Steps
 
-- add distributed tracing and correlation IDs for better observability
-- externalize topic management and environment configuration for deployment targets
-- extend the domain with payment and shipment services to evolve the saga
+- **Shipment Service** — extend the saga: `PAID` → `SHIPPED` → `DELIVERED`, with its own compensation path
+- **API Gateway** — single entry point with rate limiting and routing across services
