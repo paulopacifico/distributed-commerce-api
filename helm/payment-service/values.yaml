@@ -1,0 +1,52 @@
+image:
+  repository: payment-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8083
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+config:
+  serverPort: "8083"
+  kafkaBootstrapServers: "kafka:9092"
+  kafkaConsumerGroup: "payment-service"
+  zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
+  dbUrl: "jdbc:postgresql://postgres:5432/payment_db"
+  paymentSuccessRate: "1.0"
+  topics:
+    orderConfirmed: "order-confirmed-topic"
+    paymentSucceeded: "payment-succeeded-topic"
+    paymentFailed: "payment-failed-topic"
+
+secret:
+  dbUsername: ""
+  dbPassword: ""
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /actuator/health
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3

@@ -13,8 +13,6 @@ jobs:
   build-test-and-package:
     runs-on: ubuntu-latest
     env:
-      # GitHub-hosted Ubuntu runners already expose a Docker daemon.
-      # Testcontainers should use the host socket directly instead of docker:dind.
       TESTCONTAINERS_CHECKS_DISABLE: true
       DOCKER_HOST: unix:///var/run/docker.sock
 
@@ -48,6 +46,10 @@ jobs:
         working-directory: inventory-service
         run: mvn -B clean verify -Dspring.profiles.active=test
 
+      - name: Build and test payment-service
+        working-directory: payment-service
+        run: mvn -B clean verify -Dspring.profiles.active=test
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -56,12 +58,16 @@ jobs:
           path: |
             order-service/target/surefire-reports/
             inventory-service/target/surefire-reports/
+            payment-service/target/surefire-reports/
 
       - name: Build Docker image for order-service
         run: docker build -t order-service:ci ./order-service
 
       - name: Build Docker image for inventory-service
         run: docker build -t inventory-service:ci ./inventory-service
+
+      - name: Build Docker image for payment-service
+        run: docker build -t payment-service:ci ./payment-service
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -74,6 +80,8 @@ jobs:
           helm lint helm/order-service     -f helm/order-service/values-prod.yaml
           helm lint helm/inventory-service -f helm/inventory-service/values-dev.yaml
           helm lint helm/inventory-service -f helm/inventory-service/values-prod.yaml
+          helm lint helm/payment-service   -f helm/payment-service/values-dev.yaml
+          helm lint helm/payment-service   -f helm/payment-service/values-prod.yaml
 
       - name: Template Helm charts (dry-run render)
         run: |
@@ -81,3 +89,5 @@ jobs:
           helm template order-service     helm/order-service     -f helm/order-service/values-prod.yaml    --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template inventory-service helm/inventory-service -f helm/inventory-service/values-dev.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template inventory-service helm/inventory-service -f helm/inventory-service/values-prod.yaml --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template payment-service   helm/payment-service   -f helm/payment-service/values-dev.yaml   --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template payment-service   helm/payment-service   -f helm/payment-service/values-prod.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
