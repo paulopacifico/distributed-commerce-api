@@ -1,12 +1,10 @@
 # Event-Driven Distributed Commerce API
 
-A production-minded, polyglot Order Management System built to demonstrate senior-level distributed systems design. Three independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, and payment processing — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
+A production-minded, polyglot Order Management System built a distributed systems design. Three independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, and payment processing — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
 
 ---
 
 ## Why This Project
-
-This repository targets the decisions expected from a **Senior Software Engineer** in a modern backend team:
 
 - **Saga compensation, not just happy paths** — when payment fails, the system automatically releases the previously reserved inventory. No orchestrator. No shared state. Just well-designed event contracts.
 - **Polyglot by design** — Order Service in Java 21; Inventory and Payment services in Kotlin 2.1.10. The language choice follows the team, not a rule.
