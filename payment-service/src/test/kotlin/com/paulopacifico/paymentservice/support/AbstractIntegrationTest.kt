@@ -15,6 +15,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -36,7 +37,14 @@ abstract class AbstractIntegrationTest(body: StringSpec.() -> Unit = {}) : Strin
     @Autowired
     protected lateinit var objectMapper: ObjectMapper
 
+    @Autowired
+    private lateinit var kafkaListenerEndpointRegistry: KafkaListenerEndpointRegistry
+
     override fun extensions() = listOf(SpringExtension)
+
+    override suspend fun afterSpec(spec: io.kotest.core.spec.Spec) {
+        kafkaListenerEndpointRegistry.stop()
+    }
 
     protected fun kafkaConsumer(groupId: String): Consumer<String, String> =
         KafkaConsumer<String, String>(
