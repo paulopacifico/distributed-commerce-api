@@ -23,7 +23,7 @@ import org.springframework.kafka.core.KafkaTemplate
 import org.springframework.kafka.test.utils.ContainerTestUtils
 import org.springframework.test.context.TestPropertySource
 
-@TestPropertySource(properties = ["payment.success-rate=1.0"])
+@TestPropertySource(properties = ["payment.success-rate=1.0", "spring.kafka.consumer.group-id=payment-service-test-success"])
 class PaymentSagaIntegrationTest : AbstractIntegrationTest() {
 
     @Autowired lateinit var paymentRepository: PaymentRepository
