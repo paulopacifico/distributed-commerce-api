@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/payment_db}
+    username: ${PAYMENT_DB_USERNAME:oms}
+    password: ${PAYMENT_DB_PASSWORD:oms}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: UTC
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:payment-service}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        isolation.level: read_committed
+    listener:
+      ack-mode: record
+      missing-topics-fatal: false
+      observation-enabled: true
+    template:
+      observation-enabled: true
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+app:
+  kafka:
+    topics:
+      order-confirmed: ${ORDER_CONFIRMED_TOPIC:order-confirmed-topic}
+      payment-succeeded: ${PAYMENT_SUCCEEDED_TOPIC:payment-succeeded-topic}
+      payment-failed: ${PAYMENT_FAILED_TOPIC:payment-failed-topic}
+
+payment:
+  success-rate: ${PAYMENT_SUCCESS_RATE:1.0}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [traceId=%X{traceId:-}, spanId=%X{spanId:-}] %-5level [%t] %logger{50} : %m%n"
+  level:
+    root: INFO
+    com.paulopacifico.paymentservice: INFO
