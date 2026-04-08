@@ -135,4 +135,34 @@ public class OrderKafkaConfiguration {
     public NewTopic paymentFailedDltTopic(KafkaTopicProperties topics) {
         return name(topics.paymentFailed() + ".DLT").partitions(3).replicas(1).build();
     }
+
+    @Bean
+    public NewTopic orderPaidTopic(KafkaTopicProperties topics) {
+        return name(topics.orderPaid()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderPaidDltTopic(KafkaTopicProperties topics) {
+        return name(topics.orderPaid() + ".DLT").partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic shipmentShippedTopic(KafkaTopicProperties topics) {
+        return name(topics.shipmentShipped()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic shipmentShippedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.shipmentShipped() + ".DLT").partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic shipmentFailedTopic(KafkaTopicProperties topics) {
+        return name(topics.shipmentFailed()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic shipmentFailedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.shipmentFailed() + ".DLT").partitions(3).replicas(1).build();
+    }
 }
