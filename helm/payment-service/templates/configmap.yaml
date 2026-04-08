@@ -14,3 +14,4 @@ data:
   ORDER_CONFIRMED_TOPIC: {{ .Values.config.topics.orderConfirmed | quote }}
   PAYMENT_SUCCEEDED_TOPIC: {{ .Values.config.topics.paymentSucceeded | quote }}
   PAYMENT_FAILED_TOPIC: {{ .Values.config.topics.paymentFailed | quote }}
+  TRACING_SAMPLING_PROBABILITY: {{ .Values.config.tracingSamplingProbability | quote }}

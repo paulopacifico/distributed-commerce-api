@@ -15,6 +15,7 @@ config:
   kafkaBootstrapServers: "${KAFKA_BOOTSTRAP_SERVERS}"
   dbUrl: "${ORDER_DB_URL}"
   zipkinEndpoint: "${ZIPKIN_ENDPOINT}"
+  tracingSamplingProbability: "0.1"
 
 hpa:
   enabled: true

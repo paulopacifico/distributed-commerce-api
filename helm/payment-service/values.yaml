@@ -24,6 +24,7 @@ config:
   zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
   dbUrl: "jdbc:postgresql://postgres:5432/payment_db"
   paymentSuccessRate: "1.0"
+  tracingSamplingProbability: "1.0"
   topics:
     orderConfirmed: "order-confirmed-topic"
     paymentSucceeded: "payment-succeeded-topic"
@@ -41,12 +42,12 @@ hpa:
 
 probes:
   liveness:
-    path: /actuator/health
+    path: /actuator/health/liveness
     initialDelaySeconds: 60
     periodSeconds: 15
     failureThreshold: 3
   readiness:
-    path: /actuator/health
+    path: /actuator/health/readiness
     initialDelaySeconds: 30
     periodSeconds: 10
     failureThreshold: 3

@@ -14,3 +14,4 @@ data:
   INVENTORY_RESERVED_TOPIC: {{ .Values.config.topics.inventoryReserved | quote }}
   INVENTORY_FAILED_TOPIC: {{ .Values.config.topics.inventoryFailed | quote }}
   ORDER_FAILED_TOPIC: {{ .Values.config.topics.orderFailed | quote }}
+  TRACING_SAMPLING_PROBABILITY: {{ .Values.config.tracingSamplingProbability | quote }}
