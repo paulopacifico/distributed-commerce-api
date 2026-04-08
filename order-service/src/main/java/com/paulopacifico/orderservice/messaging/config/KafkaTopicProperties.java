@@ -10,6 +10,9 @@ public record KafkaTopicProperties(
         String orderFailed,
         String orderConfirmed,
         String paymentSucceeded,
-        String paymentFailed
+        String paymentFailed,
+        String orderPaid,
+        String shipmentShipped,
+        String shipmentFailed
 ) {
 }

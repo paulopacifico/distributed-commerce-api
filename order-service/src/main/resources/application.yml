@@ -64,6 +64,9 @@ app:
       order-confirmed: ${ORDER_CONFIRMED_TOPIC:order-confirmed-topic}
       payment-succeeded: ${PAYMENT_SUCCEEDED_TOPIC:payment-succeeded-topic}
       payment-failed: ${PAYMENT_FAILED_TOPIC:payment-failed-topic}
+      order-paid: ${ORDER_PAID_TOPIC:order-paid-topic}
+      shipment-shipped: ${SHIPMENT_SHIPPED_TOPIC:shipment-shipped-topic}
+      shipment-failed: ${SHIPMENT_FAILED_TOPIC:shipment-failed-topic}
 
 logging:
   pattern:
