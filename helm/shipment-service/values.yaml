@@ -1,0 +1,53 @@
+image:
+  repository: shipment-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 8084
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+config:
+  serverPort: "8084"
+  kafkaBootstrapServers: "kafka:9092"
+  kafkaConsumerGroup: "shipment-service"
+  zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
+  dbUrl: "jdbc:postgresql://postgres:5432/shipment_db"
+  shipmentSuccessRate: "1.0"
+  tracingSamplingProbability: "1.0"
+  topics:
+    orderPaid: "order-paid-topic"
+    shipmentShipped: "shipment-shipped-topic"
+    shipmentFailed: "shipment-failed-topic"
+
+secret:
+  dbUsername: ""
+  dbPassword: ""
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+probes:
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3

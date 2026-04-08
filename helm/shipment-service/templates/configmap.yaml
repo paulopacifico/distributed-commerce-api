@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "shipment-service.fullname" . }}
+  labels:
+    {{- include "shipment-service.labels" . | nindent 4 }}
+data:
+  SERVER_PORT: {{ .Values.config.serverPort | quote }}
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafkaBootstrapServers | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.config.kafkaConsumerGroup | quote }}
+  ZIPKIN_ENDPOINT: {{ .Values.config.zipkinEndpoint | quote }}
+  SHIPMENT_DB_URL: {{ .Values.config.dbUrl | quote }}
+  SHIPMENT_SUCCESS_RATE: {{ .Values.config.shipmentSuccessRate | quote }}
+  TRACING_SAMPLING_PROBABILITY: {{ .Values.config.tracingSamplingProbability | quote }}
+  ORDER_PAID_TOPIC: {{ .Values.config.topics.orderPaid | quote }}
+  SHIPMENT_SHIPPED_TOPIC: {{ .Values.config.topics.shipmentShipped | quote }}
+  SHIPMENT_FAILED_TOPIC: {{ .Values.config.topics.shipmentFailed | quote }}

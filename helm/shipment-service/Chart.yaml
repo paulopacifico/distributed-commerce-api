@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shipment-service
+description: Shipment Service for the distributed commerce platform
+type: application
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"
