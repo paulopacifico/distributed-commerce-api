@@ -199,6 +199,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <systemPropertyVariables>
+                        <testcontainers.ryuk.disabled>true</testcontainers.ryuk.disabled>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
