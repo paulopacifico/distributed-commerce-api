@@ -114,6 +114,7 @@
                     </environmentVariables>
                     <systemPropertyVariables>
                         <testcontainers.ryuk.disabled>true</testcontainers.ryuk.disabled>
+                        <api.version>1.40</api.version>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
