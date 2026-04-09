@@ -199,8 +199,17 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <environmentVariables>
+                        <DOCKER_HOST>unix:///var/run/docker.sock</DOCKER_HOST>
+                        <DOCKER_API_VERSION>1.54</DOCKER_API_VERSION>
+                        <TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>/var/run/docker.sock</TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE>
+                        <TESTCONTAINERS_DOCKER_CLIENT_STRATEGY>org.testcontainers.dockerclient.EnvironmentAndSystemPropertyClientProviderStrategy</TESTCONTAINERS_DOCKER_CLIENT_STRATEGY>
+                        <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
+                        <TESTCONTAINERS_CHECKS_DISABLE>true</TESTCONTAINERS_CHECKS_DISABLE>
+                    </environmentVariables>
                     <systemPropertyVariables>
-                        <testcontainers.ryuk.disabled>true</testcontainers.ryuk.disabled>
+                        <docker.host>unix:///var/run/docker.sock</docker.host>
+                        <api.version>1.54</api.version>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
