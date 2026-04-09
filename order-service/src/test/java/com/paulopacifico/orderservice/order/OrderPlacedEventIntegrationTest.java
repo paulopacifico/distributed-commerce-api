@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -19,6 +18,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+
+import org.apache.kafka.common.TopicPartition;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -55,15 +56,21 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
         assertThat(orderResponse.status()).isEqualTo(OrderStatus.PENDING);
 
         try (var consumer = kafkaConsumer("order-service-it")) {
-            consumer.subscribe(List.of("order-placed-topic"));
-
-            Awaitility.await()
-                    .atMost(Duration.ofSeconds(5))
-                    .until(() -> {
-                        consumer.poll(Duration.ofMillis(200));
-                        return !consumer.assignment().isEmpty();
-                    });
-            consumer.seekToBeginning(consumer.assignment());
+            // Use manual partition assignment + seek(tp, 0) rather than subscribe +
+            // seekToBeginning.  seekToBeginning is lazy and requires a ListOffsets
+            // round-trip on the next poll; under CI load that trip can exceed the
+            // per-poll window and the 15-second budget runs out before records arrive.
+            // seek(tp, 0) sets the fetch position directly in the subscription state
+            // with no network round-trip — the same approach used in OrderSagaIntegrationTest.
+            var partitions = List.of(
+                    new TopicPartition("order-placed-topic", 0),
+                    new TopicPartition("order-placed-topic", 1),
+                    new TopicPartition("order-placed-topic", 2)
+            );
+            consumer.assign(partitions);
+            for (var tp : partitions) {
+                consumer.seek(tp, 0L);
+            }
 
             Awaitility.await()
                     .atMost(Duration.ofSeconds(15))
