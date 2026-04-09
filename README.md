@@ -1,23 +1,37 @@
 # Event-Driven Distributed Commerce API
 
-A production-minded, polyglot Order Management System built a distributed systems design. Four independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, payment processing, and shipment — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
+A production-minded, polyglot Order Management System built a distributed systems design. Four independently deployable services coordinate a multi-step business transaction order creation, inventory reservation, payment processing, and shipment using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
+
+---
+
+## Tech Stack
+
+![Java 21](https://img.shields.io/badge/Java_21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Helm](https://img.shields.io/badge/Helm-0F1689?style=for-the-badge&logo=helm&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 
 ---
 
 ## Why This Project
 
-- **Saga compensation, not just happy paths** — when payment fails, the system automatically releases the previously reserved inventory. No orchestrator. No shared state. Just well-designed event contracts.
-- **Polyglot by design** — Order Service in Java 21; Inventory and Payment services in Kotlin 2.1.10. The language choice follows the team, not a rule.
-- **Production-grade from the start** — Flyway migrations, idempotent consumers, structured observability, Helm charts for Kubernetes, and a full CI/CD pipeline. Nothing is left as a "nice to have."
-- **Database-per-service** — each service owns its schema. No shared tables, no shared connections.
-- **Independently testable** — every service has integration tests using real databases and real Kafka brokers via Testcontainers. No mocks at the infrastructure boundary.
+- **Saga compensation, not just happy paths** when payment fails, the system automatically releases the previously reserved inventory. No orchestrator. No shared state. Just well-designed event contracts.
+- **Polyglot by design**  Order Service in Java 21; Inventory and Payment services in Kotlin 2.1.10. The language choice follows the team, not a rule.
+- **Production-grade from the start**  Flyway migrations, idempotent consumers, structured observability, Helm charts for Kubernetes, and a full CI/CD pipeline. Nothing is left as a "nice to have."
+- **Database-per-service** each service owns its schema. No shared tables, no shared connections.
+- **Independently testable** every service has integration tests using real databases and real Kafka brokers via Testcontainers. No mocks at the infrastructure boundary.
 
 ---
 
 ## Engineering Highlights
 
 ### Choreography Saga with Compensation
-The full saga spans four services and nine Kafka topics. When payment fails, a `PaymentFailedEvent` triggers inventory to release its reservation — restoring the system to a clean state with no central coordinator. The failure path is as well-tested as the happy path.
+The full saga spans four services and nine Kafka topics. When payment fails, a `PaymentFailedEvent` triggers inventory to release its reservation restoring the system to a clean state with no central coordinator. The failure path is as well-tested as the happy path.
 
 ### Idempotent Kafka Consumers
 Every consumer maintains a `processed_*_events` table keyed on the event UUID. Kafka redeliveries are safely absorbed without side effects. This pattern is applied identically across all four services.
@@ -26,7 +40,7 @@ Every consumer maintains a `processed_*_events` table keyed on the event UUID. K
 The Order Service is written in Java 21 using records, sealed types, and Spring Boot idioms. The Inventory, Payment, and Shipment services are written in Kotlin 2.1.10 using data classes, extension functions, and Kotest for expressive tests. Each language is used where it fits the team writing it.
 
 ### Distributed Tracing
-All four services are instrumented with **Micrometer Tracing + Brave** and report spans to **Zipkin** at 100% sampling. The local environment ships with a Zipkin container — cross-service saga traces are visible out of the box.
+All four services are instrumented with **Micrometer Tracing + Brave** and report spans to **Zipkin** at 100% sampling. The local environment ships with a Zipkin container cross-service saga traces are visible out of the box.
 
 ### Helm Charts for Kubernetes
 Each service has a production-ready Helm chart with separate `dev` and `prod` value overrides, HPA configuration, liveness/readiness probes, a Kubernetes `Secret` for database credentials, and a `ConfigMap` for environment-specific settings.
@@ -35,7 +49,7 @@ Each service has a production-ready Helm chart with separate `dev` and `prod` va
 GitHub Actions runs on every push and pull request: Maven build and Testcontainers integration tests for all four services, Docker image builds, and Helm `lint` + `template` dry-runs for all eight value combinations. The pipeline fails fast on any of these gates.
 
 ### Strict Event Contracts
-Kafka event payloads are defined as dedicated Java records and Kotlin data classes — never JPA entities. The persistence model never leaks into the event bus.
+Kafka event payloads are defined as dedicated Java records and Kotlin data classes never JPA entities. The persistence model never leaks into the event bus.
 
 ---
 
@@ -138,20 +152,6 @@ flowchart LR
 | `inventory-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8082 | `inventory_db` | Stock reservation and release |
 | `payment-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8083 | `payment_db` | Charge processing and outcome publishing |
 | `shipment-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8084 | `shipment_db` | Shipment processing and outcome publishing |
-
----
-
-## Tech Stack
-
-![Java 21](https://img.shields.io/badge/Java_21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
-![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![Helm](https://img.shields.io/badge/Helm-0F1689?style=for-the-badge&logo=helm&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 
 ---
 
