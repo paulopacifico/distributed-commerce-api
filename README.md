@@ -1,6 +1,6 @@
 # Event-Driven Distributed Commerce API
 
-A production-minded, polyglot Order Management System built a distributed systems design. Three independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, and payment processing — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
+A production-minded, polyglot Order Management System built a distributed systems design. Four independently deployable services coordinate a multi-step business transaction — order creation, inventory reservation, payment processing, and shipment — using the **Choreography Saga Pattern** over Apache Kafka, with full compensation on failure.
 
 ---
 
@@ -17,22 +17,22 @@ A production-minded, polyglot Order Management System built a distributed system
 ## Engineering Highlights
 
 ### Choreography Saga with Compensation
-The full saga spans three services and six Kafka topics. When payment fails, a `PaymentFailedEvent` triggers inventory to release its reservation — restoring the system to a clean state with no central coordinator. The failure path is as well-tested as the happy path.
+The full saga spans four services and nine Kafka topics. When payment fails, a `PaymentFailedEvent` triggers inventory to release its reservation — restoring the system to a clean state with no central coordinator. The failure path is as well-tested as the happy path.
 
 ### Idempotent Kafka Consumers
-Every consumer maintains a `processed_*_events` table keyed on the event UUID. Kafka redeliveries are safely absorbed without side effects. This pattern is applied identically across all three services.
+Every consumer maintains a `processed_*_events` table keyed on the event UUID. Kafka redeliveries are safely absorbed without side effects. This pattern is applied identically across all four services.
 
 ### Polyglot Architecture
-The Order Service is written in Java 21 using records, sealed types, and Spring Boot idioms. The Inventory and Payment services are written in Kotlin 2.1.10 using data classes, extension functions, and Kotest for expressive tests. Each language is used where it fits the team writing it.
+The Order Service is written in Java 21 using records, sealed types, and Spring Boot idioms. The Inventory, Payment, and Shipment services are written in Kotlin 2.1.10 using data classes, extension functions, and Kotest for expressive tests. Each language is used where it fits the team writing it.
 
 ### Distributed Tracing
-All three services are instrumented with **Micrometer Tracing + Brave** and report spans to **Zipkin** at 100% sampling. The local environment ships with a Zipkin container — cross-service saga traces are visible out of the box.
+All four services are instrumented with **Micrometer Tracing + Brave** and report spans to **Zipkin** at 100% sampling. The local environment ships with a Zipkin container — cross-service saga traces are visible out of the box.
 
 ### Helm Charts for Kubernetes
 Each service has a production-ready Helm chart with separate `dev` and `prod` value overrides, HPA configuration, liveness/readiness probes, a Kubernetes `Secret` for database credentials, and a `ConfigMap` for environment-specific settings.
 
 ### Full CI/CD Pipeline
-GitHub Actions runs on every push and pull request: Maven build and Testcontainers integration tests for all three services, Docker image builds, and Helm `lint` + `template` dry-runs for all six value combinations. The pipeline fails fast on any of these gates.
+GitHub Actions runs on every push and pull request: Maven build and Testcontainers integration tests for all four services, Docker image builds, and Helm `lint` + `template` dry-runs for all eight value combinations. The pipeline fails fast on any of these gates.
 
 ### Strict Event Contracts
 Kafka event payloads are defined as dedicated Java records and Kotlin data classes — never JPA entities. The persistence model never leaks into the event bus.
@@ -54,13 +54,17 @@ flowchart LR
     Payment["Payment Service\nKotlin · :8083"]
     PayDB[("payment_db")]
 
-    Kafka{{"Apache Kafka\n6 topics · 3 partitions each"}}
+    Shipment["Shipment Service\nKotlin · :8084"]
+    ShipDB[("shipment_db")]
+
+    Kafka{{"Apache Kafka\n9 topics · 3 partitions each"}}
     Zipkin["Zipkin\n:9411"]
 
     Client --> Order
     Order --- OrderDB
     Inventory --- InvDB
     Payment --- PayDB
+    Shipment --- ShipDB
 
     Order -->|"① OrderPlacedEvent"| Kafka
     Kafka -->|"② order-placed-topic"| Inventory
@@ -70,11 +74,16 @@ flowchart LR
     Kafka -->|"⑥ order-confirmed-topic"| Payment
     Payment -->|"⑦ PaymentSucceeded / Failed"| Kafka
     Kafka -->|"⑧ payment-*-topic"| Order
-    Kafka -->|"⑨ payment-failed-topic\n↩ compensation"| Inventory
+    Order -->|"⑨ OrderPaidEvent"| Kafka
+    Kafka -->|"⑩ order-paid-topic"| Shipment
+    Shipment -->|"⑪ ShipmentShipped / Failed"| Kafka
+    Kafka -->|"⑫ shipment-*-topic"| Order
+    Kafka -->|"payment-failed-topic\n↩ compensation"| Inventory
 
     Order -. traces .-> Zipkin
     Inventory -. traces .-> Zipkin
     Payment -. traces .-> Zipkin
+    Shipment -. traces .-> Zipkin
 ```
 
 ---
@@ -92,6 +101,9 @@ flowchart LR
 | 5 | Order Service | Transitions to `CONFIRMED`, publishes `OrderConfirmedEvent` | → `order-confirmed-topic` |
 | 6 | Payment Service | Processes charge, publishes `PaymentSucceededEvent` | → `payment-succeeded-topic` |
 | 7 | Order Service | Transitions to `PAID` | — |
+| 8 | Order Service | Publishes `OrderPaidEvent` | → `order-paid-topic` |
+| 9 | Shipment Service | Processes shipment, publishes `ShipmentShippedEvent` | → `shipment-shipped-topic` |
+| 10 | Order Service | Transitions to `SHIPPED` | — |
 
 ### Failure path A — insufficient inventory
 
@@ -109,6 +121,13 @@ flowchart LR
 | 7a | Order Service | Transitions to `PAYMENT_FAILED` | — |
 | 7b | Inventory Service | Consumes `payment-failed-topic`, releases reservation | Compensation complete |
 
+### Failure path C — shipment failed
+
+| Step | Actor | Action | Outcome |
+|------|-------|--------|---------|
+| 9 | Shipment Service | Carrier rejected, publishes `ShipmentFailedEvent` | → `shipment-failed-topic` |
+| 10 | Order Service | Transitions to `SHIPMENT_FAILED` | — |
+
 ---
 
 ## Services
@@ -118,6 +137,7 @@ flowchart LR
 | `order-service` | Java 21 + Spring Boot 3.4.3 | 8081 | `order_db` | REST entry point, saga orchestration state machine |
 | `inventory-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8082 | `inventory_db` | Stock reservation and release |
 | `payment-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8083 | `payment_db` | Charge processing and outcome publishing |
+| `shipment-service` | Kotlin 2.1.10 + Spring Boot 3.4.3 | 8084 | `shipment_db` | Shipment processing and outcome publishing |
 
 ---
 
@@ -142,7 +162,7 @@ flowchart LR
 ├── docker-compose.yml                  # Full local stack: Postgres, Kafka, Kafka UI, Zipkin
 ├── docker/
 │   └── postgres/init/
-│       └── 01-create-databases.sql     # Initialises order_db, inventory_db, payment_db
+│       └── 01-create-databases.sql     # Initialises order_db, inventory_db, payment_db, shipment_db
 ├── helm/
 │   ├── order-service/                  # Helm chart: deployment, service, HPA, secret, configmap
 │   ├── inventory-service/
@@ -153,7 +173,10 @@ flowchart LR
 ├── inventory-service/                  # Kotlin · Spring Boot
 │   ├── src/main/kotlin/
 │   └── src/main/resources/db/migration/
-└── payment-service/                    # Kotlin · Spring Boot
+├── payment-service/                    # Kotlin · Spring Boot
+│   ├── src/main/kotlin/
+│   └── src/main/resources/db/migration/
+└── shipment-service/               # Kotlin · Spring Boot
     ├── src/main/kotlin/
     └── src/main/resources/db/migration/
 ```
@@ -172,10 +195,10 @@ This starts:
 
 | Container | URL | Purpose |
 |-----------|-----|---------|
-| PostgreSQL | `localhost:5432` | Three logical databases (`order_db`, `inventory_db`, `payment_db`) |
+| PostgreSQL | `localhost:5432` | Four logical databases (`order_db`, `inventory_db`, `payment_db`, `shipment_db`) |
 | Kafka (KRaft) | `localhost:9094` | Message broker, topics auto-created on first use |
 | Kafka UI | `http://localhost:8080` | Browse topics, consumer groups, and message payloads |
-| Zipkin | `http://localhost:9411` | Distributed trace viewer across all three services |
+| Zipkin | `http://localhost:9411` | Distributed trace viewer across all four services |
 
 ### 2. Start the services (each in a separate terminal)
 
@@ -188,6 +211,9 @@ cd inventory-service && mvn spring-boot:run
 
 # Terminal 3
 cd payment-service && mvn spring-boot:run
+
+# Terminal 4
+cd shipment-service && mvn spring-boot:run
 ```
 
 ### 3. Seed inventory
@@ -207,8 +233,8 @@ curl -s -X POST http://localhost:8081/api/orders \
 ```
 
 Then:
-- **Kafka UI** (`http://localhost:8080`) — inspect events flowing through all six topics
-- **Zipkin** (`http://localhost:9411`) — view the distributed trace spanning all three services
+- **Kafka UI** (`http://localhost:8080`) — inspect events flowing through all nine topics
+- **Zipkin** (`http://localhost:9411`) — view the distributed trace spanning all four services
 - **Order status** — `GET http://localhost:8081/api/orders/{id}` should reach `PAID`
 
 ---
@@ -217,7 +243,7 @@ Then:
 
 ### Strategy
 
-Each service has two test layers:
+All four services have two test layers:
 
 | Layer | Scope | Tools |
 |-------|-------|-------|
@@ -239,11 +265,13 @@ All async assertions use condition-based polling. `Thread.sleep()` does not appe
 cd order-service     && mvn test
 cd inventory-service && mvn test
 cd payment-service   && mvn test
+cd shipment-service  && mvn test
 
 # Unit tests only (no Docker required)
 cd order-service     && mvn test -DskipIntegrationTests
 cd inventory-service && mvn test -DskipIntegrationTests
 cd payment-service   && mvn test -DskipIntegrationTests
+cd shipment-service  && mvn test -DskipIntegrationTests
 ```
 
 ---
@@ -255,10 +283,10 @@ The GitHub Actions workflow (`Polyglot CI/CD`) runs on every push to `main`/`dev
 **Pipeline stages:**
 
 1. **Pre-pull Testcontainers images** — `postgres:16-alpine` and `apache/kafka-native:3.8.0` are pulled before any service builds to avoid cold-start timeouts.
-2. **Build and test** — `mvn clean verify` for all three services with the `test` Spring profile active.
+2. **Build and test** — `mvn clean verify` for all four services with the `test` Spring profile active.
 3. **Docker image build** — each service image is built from its multi-stage `Dockerfile`.
-4. **Helm lint** — all six value combinations (`dev` + `prod` × three services) are linted.
-5. **Helm template dry-run** — all six combinations are rendered to catch template errors without a cluster.
+4. **Helm lint** — all eight value combinations (`dev` + `prod` × four services) are linted.
+5. **Helm template dry-run** — all eight combinations are rendered to catch template errors without a cluster.
 
 Test reports are uploaded as artifacts on failure for post-mortem analysis.
 
@@ -266,5 +294,4 @@ Test reports are uploaded as artifacts on failure for post-mortem analysis.
 
 ## Next Steps
 
-- **Shipment Service** — extend the saga: `PAID` → `SHIPPED` → `DELIVERED`, with its own compensation path
 - **API Gateway** — single entry point with rate limiting and routing across services
