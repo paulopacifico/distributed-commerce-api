@@ -17,6 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.kafka.common.TopicPartition;
@@ -72,18 +73,37 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
                 consumer.seek(tp, 0L);
             }
 
+            // Accumulate across polls so that records fetched by an earlier poll are
+            // not lost when Awaitility retries — mirrors the pattern in OrderSagaIntegrationTest.
+            var collectedValues = new ArrayList<String>();
+
             Awaitility.await()
-                    .atMost(Duration.ofSeconds(15))
+                    .atMost(Duration.ofSeconds(30))
                     .untilAsserted(() -> {
-                        var records = consumer.poll(Duration.ofMillis(500));
-                        assertThat(records).isNotEmpty();
+                        consumer.poll(Duration.ofMillis(500))
+                                .forEach(r -> collectedValues.add(r.value()));
 
-                        var record = records.iterator().next();
-                        var event = objectMapper.readValue(record.value(), OrderPlacedEvent.class);
+                        assertThat(collectedValues)
+                                .withFailMessage("No records received from order-placed-topic")
+                                .isNotEmpty();
 
-                        assertThat(event.orderNumber()).isEqualTo(orderResponse.orderNumber());
-                        assertThat(event.skuCode()).isEqualTo("SKU-IT-100");
-                        assertThat(event.quantity()).isEqualTo(3);
+                        var matchingEvent = collectedValues.stream()
+                                .map(v -> {
+                                    try {
+                                        return objectMapper.readValue(v, OrderPlacedEvent.class);
+                                    } catch (Exception e) {
+                                        throw new AssertionError("Failed to deserialize OrderPlacedEvent: " + v, e);
+                                    }
+                                })
+                                .filter(e -> orderResponse.orderNumber().equals(e.orderNumber()))
+                                .findFirst();
+
+                        assertThat(matchingEvent)
+                                .withFailMessage("OrderPlacedEvent for orderNumber=%s not found in %d record(s)",
+                                        orderResponse.orderNumber(), collectedValues.size())
+                                .isPresent();
+                        assertThat(matchingEvent.get().skuCode()).isEqualTo("SKU-IT-100");
+                        assertThat(matchingEvent.get().quantity()).isEqualTo(3);
                     });
         }
     }
