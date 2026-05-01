@@ -1,6 +1,5 @@
 package com.paulopacifico.orderservice.order.api;
 
-import com.paulopacifico.orderservice.order.application.OrderSagaService;
 import com.paulopacifico.orderservice.order.application.OrderService;
 import jakarta.validation.Valid;
 import java.net.URI;
@@ -12,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,11 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderService orderService;
-    private final OrderSagaService orderSagaService;
 
-    public OrderController(OrderService orderService, OrderSagaService orderSagaService) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
-        this.orderSagaService = orderSagaService;
     }
 
     @PostMapping
@@ -47,13 +43,5 @@ public class OrderController {
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         return orderService.getOrders(pageable);
-    }
-
-    @PutMapping("/{orderId}/status")
-    public OrderResponse updateStatus(
-            @PathVariable Long orderId,
-            @Valid @RequestBody UpdateOrderStatusRequest request
-    ) {
-        return orderSagaService.updateStatus(orderId, request.status());
     }
 }

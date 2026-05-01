@@ -3,8 +3,6 @@ package com.paulopacifico.orderservice.order.application;
 import com.paulopacifico.orderservice.messaging.api.OrderFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.OrderPaidEvent;
 import com.paulopacifico.orderservice.order.api.OrderConfirmedEvent;
-import com.paulopacifico.orderservice.order.api.OrderMapper;
-import com.paulopacifico.orderservice.order.api.OrderResponse;
 import com.paulopacifico.orderservice.order.domain.OrderEntity;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
 import com.paulopacifico.orderservice.order.messaging.OrderConfirmedEventPublisher;
@@ -24,31 +22,20 @@ public class OrderSagaService {
     private static final Logger log = LoggerFactory.getLogger(OrderSagaService.class);
 
     private final OrderRepository orderRepository;
-    private final OrderMapper orderMapper;
     private final OrderFailedEventPublisher orderFailedEventPublisher;
     private final OrderConfirmedEventPublisher orderConfirmedEventPublisher;
     private final OrderPaidEventPublisher orderPaidEventPublisher;
 
     public OrderSagaService(
             OrderRepository orderRepository,
-            OrderMapper orderMapper,
             OrderFailedEventPublisher orderFailedEventPublisher,
             OrderConfirmedEventPublisher orderConfirmedEventPublisher,
             OrderPaidEventPublisher orderPaidEventPublisher
     ) {
         this.orderRepository = orderRepository;
-        this.orderMapper = orderMapper;
         this.orderFailedEventPublisher = orderFailedEventPublisher;
         this.orderConfirmedEventPublisher = orderConfirmedEventPublisher;
         this.orderPaidEventPublisher = orderPaidEventPublisher;
-    }
-
-    @Transactional
-    public OrderResponse updateStatus(Long orderId, OrderStatus status) {
-        OrderEntity order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
-        applyStatusTransition(order, status);
-        return orderMapper.toResponse(order);
     }
 
     @Transactional
