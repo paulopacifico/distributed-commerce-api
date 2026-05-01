@@ -91,11 +91,6 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
@@ -128,6 +123,7 @@
     </build>
 
     <profiles>
+        <!-- Use -DskipIntegrationTests to skip Testcontainers-based integration tests (e.g. when Docker is unavailable) -->
         <profile>
             <id>skip-integration-tests</id>
             <activation>
