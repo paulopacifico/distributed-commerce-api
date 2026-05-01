@@ -23,6 +23,8 @@ config:
   redisPort: "6379"
   zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
   tracingSamplingProbability: "1.0"
+  orderServiceUrl: "http://order-service:8081"
+  inventoryServiceUrl: "http://inventory-service:8082"
 
 # JWT_SECRET is read from the Kubernetes secret named `gateway-jwt-secret` (key: secret).
 # Supply that secret out-of-band before deploying — do not commit real values here.

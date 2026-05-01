@@ -122,6 +122,8 @@ class GatewayIntegrationTest {
                     .returnResult(Void.class)
                     .getStatus());
         }
+        long okCount = statuses.stream().filter(s -> s.equals(HttpStatus.OK)).count();
+        assertThat(okCount).isLessThanOrEqualTo(2); // burstCapacity from application-test.yml
         assertThat(statuses).contains(HttpStatus.TOO_MANY_REQUESTS);
     }
 }

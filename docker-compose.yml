@@ -120,6 +120,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      ORDER_SERVICE_URL: http://order-service:8081
+      INVENTORY_SERVICE_URL: http://inventory-service:8082
 
 volumes:
   postgres_data:

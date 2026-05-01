@@ -10,3 +10,5 @@ data:
   SPRING_DATA_REDIS_PORT: {{ .Values.config.redisPort | quote }}
   ZIPKIN_ENDPOINT: {{ .Values.config.zipkinEndpoint | quote }}
   TRACING_SAMPLING_PROBABILITY: {{ .Values.config.tracingSamplingProbability | quote }}
+  ORDER_SERVICE_URL: {{ .Values.config.orderServiceUrl | quote }}
+  INVENTORY_SERVICE_URL: {{ .Values.config.inventoryServiceUrl | quote }}
