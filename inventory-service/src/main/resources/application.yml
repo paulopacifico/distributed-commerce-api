@@ -3,8 +3,8 @@ spring:
     name: inventory-service
   datasource:
     url: ${INVENTORY_DB_URL:jdbc:postgresql://localhost:5432/inventory_db}
-    username: ${INVENTORY_DB_USERNAME:oms}
-    password: ${INVENTORY_DB_PASSWORD:oms}
+    username: ${INVENTORY_DB_USERNAME}
+    password: ${INVENTORY_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
