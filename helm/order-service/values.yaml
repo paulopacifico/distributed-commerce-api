@@ -31,10 +31,11 @@ config:
     orderFailed: "order-failed-topic"
 
 # Sensitive values — never commit real credentials.
-# Supply at deploy time via: --set secret.dbUsername=... --set secret.dbPassword=...
+# Supply at deploy time via: --set secret.dbUsername=... --set secret.dbPassword=... --set secret.jwtSecret=...
 secret:
   dbUsername: ""
   dbPassword: ""
+  jwtSecret: ""
 
 hpa:
   enabled: false
