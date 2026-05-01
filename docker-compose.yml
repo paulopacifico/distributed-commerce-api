@@ -71,7 +71,7 @@ services:
       kafka:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local-kraft
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
@@ -91,6 +91,35 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    container_name: dc-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  gateway-service:
+    image: paulopacifico/gateway-service:latest
+    container_name: dc-gateway
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: your-secret-key-here-min-32-chars-long
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
 
 volumes:
   postgres_data:

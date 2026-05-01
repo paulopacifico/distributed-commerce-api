@@ -197,10 +197,14 @@ This starts:
 |-----------|-----|---------|
 | PostgreSQL | `localhost:5432` | Four logical databases (`order_db`, `inventory_db`, `payment_db`, `shipment_db`) |
 | Kafka (KRaft) | `localhost:9094` | Message broker, topics auto-created on first use |
-| Kafka UI | `http://localhost:8080` | Browse topics, consumer groups, and message payloads |
+| Kafka UI | `http://localhost:8090` | Browse topics, consumer groups, and message payloads |
 | Zipkin | `http://localhost:9411` | Distributed trace viewer across all four services |
+| Redis | `localhost:6379` | Rate-limit counters and token cache for the API gateway |
+| API Gateway | `http://localhost:8080` | Single entry point — JWT auth, rate limiting, and routing to all services |
 
 ### 2. Start the services (each in a separate terminal)
+
+The API gateway (`http://localhost:8080`) is now the single entry point for all client requests. Route traffic through it rather than calling individual services directly.
 
 ```bash
 # Terminal 1
@@ -233,7 +237,7 @@ curl -s -X POST http://localhost:8081/api/orders \
 ```
 
 Then:
-- **Kafka UI** (`http://localhost:8080`) — inspect events flowing through all nine topics
+- **Kafka UI** (`http://localhost:8090`) — inspect events flowing through all nine topics
 - **Zipkin** (`http://localhost:9411`) — view the distributed trace spanning all four services
 - **Order status** — `GET http://localhost:8081/api/orders/{id}` should reach `PAID`
 
