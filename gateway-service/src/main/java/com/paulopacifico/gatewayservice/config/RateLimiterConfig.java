@@ -1,13 +1,11 @@
 package com.paulopacifico.gatewayservice.config;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.publisher.Mono;
 
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
 public class RateLimiterConfig {
 
     @Bean
