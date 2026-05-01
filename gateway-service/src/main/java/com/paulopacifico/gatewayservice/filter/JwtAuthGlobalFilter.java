@@ -21,18 +21,19 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String USER_HEADER = "X-Authenticated-User";
-    private static final String PUBLIC_PATH_PREFIX = "/api/auth/";
+    private static final String PUBLIC_PATH = "/api/auth";
 
-    private final JwtProperties jwtProperties;
+    private final SecretKey secretKey;
 
     public JwtAuthGlobalFilter(JwtProperties jwtProperties) {
-        this.jwtProperties = jwtProperties;
+        this.secretKey = Keys.hmacShaKeyFor(
+                jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (path.startsWith(PUBLIC_PATH_PREFIX)) {
+        if (path.equals(PUBLIC_PATH) || path.startsWith(PUBLIC_PATH + "/")) {
             return chain.filter(exchange);
         }
 
@@ -45,7 +46,7 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
         String token = authHeader.substring(BEARER_PREFIX.length());
         try {
             String username = Jwts.parser()
-                    .verifyWith(key())
+                    .verifyWith(secretKey)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload()
@@ -65,10 +66,6 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE - 1;
-    }
-
-    private SecretKey key() {
-        return Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+        return -1;
     }
 }

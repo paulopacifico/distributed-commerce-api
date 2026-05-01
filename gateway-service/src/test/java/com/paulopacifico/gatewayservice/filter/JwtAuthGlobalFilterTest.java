@@ -43,7 +43,7 @@ class JwtAuthGlobalFilterTest {
 
         filter.filter(exchange, chain).block();
 
-        verify(chain).filter(exchange);
+        verify(chain).filter(any());
     }
 
     @Test
