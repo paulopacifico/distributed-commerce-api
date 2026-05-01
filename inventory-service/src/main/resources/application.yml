@@ -3,8 +3,8 @@ spring:
     name: inventory-service
   datasource:
     url: ${INVENTORY_DB_URL:jdbc:postgresql://localhost:5432/inventory_db}
-    username: ${INVENTORY_DB_USERNAME:oms}
-    password: ${INVENTORY_DB_PASSWORD:oms}
+    username: ${INVENTORY_DB_USERNAME}
+    password: ${INVENTORY_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
@@ -27,7 +27,6 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
         enable.idempotence: true
-        max.in.flight.requests.per.connection: 1
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:inventory-service}
       auto-offset-reset: earliest
@@ -66,6 +65,7 @@ app:
       inventory-failed: ${INVENTORY_FAILED_TOPIC:inventory-failed-topic}
       order-failed: ${ORDER_FAILED_TOPIC:order-failed-topic}
       payment-failed: ${PAYMENT_FAILED_TOPIC:payment-failed-topic}
+      order-shipment-failed: ${ORDER_SHIPMENT_FAILED_TOPIC:order-shipment-failed-topic}
 
 logging:
   pattern:

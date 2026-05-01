@@ -3,8 +3,8 @@ spring:
     name: order-service
   datasource:
     url: ${ORDER_DB_URL:jdbc:postgresql://localhost:5432/order_db}
-    username: ${ORDER_DB_USERNAME:oms}
-    password: ${ORDER_DB_PASSWORD:oms}
+    username: ${ORDER_DB_USERNAME}
+    password: ${ORDER_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
@@ -27,7 +27,6 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
         enable.idempotence: true
-        max.in.flight.requests.per.connection: 1
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:order-service}
       auto-offset-reset: earliest
@@ -71,6 +70,7 @@ app:
       order-paid: ${ORDER_PAID_TOPIC:order-paid-topic}
       shipment-shipped: ${SHIPMENT_SHIPPED_TOPIC:shipment-shipped-topic}
       shipment-failed: ${SHIPMENT_FAILED_TOPIC:shipment-failed-topic}
+      order-shipment-failed: ${ORDER_SHIPMENT_FAILED_TOPIC:order-shipment-failed-topic}
 
 logging:
   pattern:

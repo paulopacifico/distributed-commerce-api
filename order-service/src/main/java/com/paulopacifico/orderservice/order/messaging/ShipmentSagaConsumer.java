@@ -58,7 +58,7 @@ public class ShipmentSagaConsumer {
             log.info("Ignoring duplicate ShipmentFailedEvent eventId={} orderId={}", event.eventId(), event.orderId());
             return;
         }
-        orderSagaService.markAsShipmentFailed(event.orderId());
+        orderSagaService.markAsShipmentFailed(event.orderId(), event.reason());
         processedShipmentEventRepository.save(
                 new ProcessedShipmentEventEntity(event.eventId(), event.orderId(), OffsetDateTime.now())
         );
