@@ -159,7 +159,7 @@ flowchart LR
 
 ```text
 .
-├── docker-compose.yml                  # Full local stack: Postgres, Kafka, Kafka UI, Zipkin
+├── docker-compose.yml                  # Full local stack: Postgres, Kafka, Kafka UI, Zipkin, Redis, API Gateway
 ├── docker/
 │   └── postgres/init/
 │       └── 01-create-databases.sql     # Initialises order_db, inventory_db, payment_db, shipment_db
