@@ -27,7 +27,6 @@ spring:
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       properties:
         enable.idempotence: true
-        max.in.flight.requests.per.connection: 1
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:payment-service}
       auto-offset-reset: earliest
