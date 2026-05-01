@@ -165,4 +165,14 @@ public class OrderKafkaConfiguration {
     public NewTopic shipmentFailedDltTopic(KafkaTopicProperties topics) {
         return name(topics.shipmentFailed() + ".DLT").partitions(3).replicas(1).build();
     }
+
+    @Bean
+    public NewTopic orderShipmentFailedTopic(KafkaTopicProperties topics) {
+        return name(topics.orderShipmentFailed()).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderShipmentFailedDltTopic(KafkaTopicProperties topics) {
+        return name(topics.orderShipmentFailed() + ".DLT").partitions(3).replicas(1).build();
+    }
 }

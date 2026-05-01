@@ -3,8 +3,10 @@ package com.paulopacifico.orderservice.order;
 import com.paulopacifico.orderservice.messaging.api.InventoryFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.InventoryReservedEvent;
 import com.paulopacifico.orderservice.messaging.api.OrderFailedEvent;
+import com.paulopacifico.orderservice.messaging.api.OrderShipmentFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.PaymentFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.PaymentSucceededEvent;
+import com.paulopacifico.orderservice.messaging.api.ShipmentFailedEvent;
 import com.paulopacifico.orderservice.order.api.CreateOrderRequest;
 import com.paulopacifico.orderservice.order.api.OrderResponse;
 import com.paulopacifico.orderservice.order.application.OrderRepository;
@@ -217,6 +219,72 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
                         assertThat(compensationEvent.get().skuCode()).isEqualTo(order.skuCode());
                         assertThat(compensationEvent.get().reservedQuantity()).isEqualTo(order.quantity());
                         assertThat(compensationEvent.get().reason()).isEqualTo("Insufficient stock");
+                    });
+        }
+    }
+
+    @Test
+    void shouldPublishCompensationEventWhenShipmentFails() throws Exception {
+        var orderResponse = createPendingOrder("SKU-SHIP-FAIL", 2);
+
+        var orderEntity = orderRepository.findById(orderResponse.id()).orElseThrow();
+        orderEntity.confirm();
+        orderEntity.pay();
+        orderRepository.save(orderEntity);
+
+        var shipmentFailedEvent = new ShipmentFailedEvent(
+                UUID.randomUUID(),
+                orderResponse.id(),
+                orderResponse.orderNumber(),
+                "Carrier rejected",
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        kafkaTemplate.send(
+                "shipment-failed-topic",
+                orderResponse.orderNumber(),
+                objectMapper.writeValueAsString(shipmentFailedEvent)
+        ).get();
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(30))
+                .untilAsserted(() ->
+                        assertThat(getOrder(orderResponse.id()).status()).isEqualTo(OrderStatus.SHIPMENT_FAILED)
+                );
+
+        var partitions = List.of(
+                new TopicPartition("order-shipment-failed-topic", 0),
+                new TopicPartition("order-shipment-failed-topic", 1),
+                new TopicPartition("order-shipment-failed-topic", 2)
+        );
+        try (var consumer = kafkaConsumer("shipment-saga-it")) {
+            consumer.assign(partitions);
+            for (var tp : partitions) {
+                consumer.seek(tp, 0L);
+            }
+
+            var collectedRecords = new ArrayList<String>();
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(15))
+                    .untilAsserted(() -> {
+                        consumer.poll(Duration.ofMillis(500)).forEach(r -> collectedRecords.add(r.value()));
+                        assertThat(collectedRecords)
+                                .withFailMessage("No records received from order-shipment-failed-topic")
+                                .isNotEmpty();
+
+                        var compensationEvent = collectedRecords.stream()
+                                .map(v -> {
+                                    try {
+                                        return objectMapper.readValue(v, OrderShipmentFailedEvent.class);
+                                    } catch (Exception e) {
+                                        throw new AssertionError("Failed to deserialize OrderShipmentFailedEvent: " + v, e);
+                                    }
+                                })
+                                .filter(e -> orderResponse.id().equals(e.orderId()))
+                                .findFirst();
+
+                        assertThat(compensationEvent).isPresent();
+                        assertThat(compensationEvent.get().orderNumber()).isEqualTo(orderResponse.orderNumber());
+                        assertThat(compensationEvent.get().reason()).isEqualTo("Carrier rejected");
                     });
         }
     }

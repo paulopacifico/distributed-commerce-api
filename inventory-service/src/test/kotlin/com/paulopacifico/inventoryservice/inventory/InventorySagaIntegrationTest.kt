@@ -10,6 +10,7 @@ import com.paulopacifico.inventoryservice.messaging.api.InventoryFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.InventoryReservedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.OrderPlacedEvent
+import com.paulopacifico.inventoryservice.messaging.api.OrderShipmentFailedEvent
 import com.paulopacifico.inventoryservice.messaging.api.PaymentFailedEvent
 import com.paulopacifico.inventoryservice.support.AbstractIntegrationTest
 import io.kotest.assertions.nondeterministic.eventually
@@ -280,5 +281,48 @@ class InventorySagaIntegrationTest : AbstractIntegrationTest() {
                 inventoryReservationRepository.existsById(404L) shouldBe false
             }
         }
+
+        "should release reserved inventory when shipment fails" {
+            awaitTopicReady("order-shipment-failed-topic")
+
+            inventoryRepository.saveAndFlush(
+                InventoryEntity(skuCode = "SKU-KT-500", quantity = 7),
+            )
+            inventoryReservationRepository.saveAndFlush(
+                InventoryReservationEntity(
+                    orderId = 505L,
+                    skuCode = "SKU-KT-500",
+                    reservedQuantity = 3,
+                    reservedAt = OffsetDateTime.now(ZoneOffset.UTC),
+                ),
+            )
+
+            val listenerContainer = requireNotNull(
+                kafkaListenerEndpointRegistry.getListenerContainer("shipmentFailedSagaConsumer"),
+            ) { "Kafka listener container shipmentFailedSagaConsumer was not registered" }
+            ContainerTestUtils.waitForAssignment(listenerContainer, 3)
+
+            val orderShipmentFailedEvent = OrderShipmentFailedEvent(
+                eventId = UUID.randomUUID(),
+                orderId = 505L,
+                orderNumber = "ORD-KT-505",
+                reason = "Carrier rejected",
+                occurredAt = OffsetDateTime.now(ZoneOffset.UTC),
+            )
+            kafkaTemplate.send(
+                ProducerRecord(
+                    "order-shipment-failed-topic",
+                    orderShipmentFailedEvent.orderNumber,
+                    kafkaObjectMapper.writeValueAsString(orderShipmentFailedEvent),
+                ),
+            ).get()
+
+            eventually(30.seconds) {
+                val updatedInventory = requireNotNull(inventoryRepository.findBySkuCode("SKU-KT-500"))
+                updatedInventory.quantity shouldBeExactly 10
+                inventoryReservationRepository.existsById(505L) shouldBe false
+            }
+        }
     }
 }
+

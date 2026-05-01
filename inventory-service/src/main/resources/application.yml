@@ -65,6 +65,7 @@ app:
       inventory-failed: ${INVENTORY_FAILED_TOPIC:inventory-failed-topic}
       order-failed: ${ORDER_FAILED_TOPIC:order-failed-topic}
       payment-failed: ${PAYMENT_FAILED_TOPIC:payment-failed-topic}
+      order-shipment-failed: ${ORDER_SHIPMENT_FAILED_TOPIC:order-shipment-failed-topic}
 
 logging:
   pattern:

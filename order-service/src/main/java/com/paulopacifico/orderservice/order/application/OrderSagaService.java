@@ -2,12 +2,14 @@ package com.paulopacifico.orderservice.order.application;
 
 import com.paulopacifico.orderservice.messaging.api.OrderFailedEvent;
 import com.paulopacifico.orderservice.messaging.api.OrderPaidEvent;
+import com.paulopacifico.orderservice.messaging.api.OrderShipmentFailedEvent;
 import com.paulopacifico.orderservice.order.api.OrderConfirmedEvent;
 import com.paulopacifico.orderservice.order.domain.OrderEntity;
 import com.paulopacifico.orderservice.order.domain.OrderStatus;
 import com.paulopacifico.orderservice.order.messaging.OrderConfirmedEventPublisher;
 import com.paulopacifico.orderservice.order.messaging.OrderFailedEventPublisher;
 import com.paulopacifico.orderservice.order.messaging.OrderPaidEventPublisher;
+import com.paulopacifico.orderservice.order.messaging.OrderShipmentFailedEventPublisher;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -25,17 +27,20 @@ public class OrderSagaService {
     private final OrderFailedEventPublisher orderFailedEventPublisher;
     private final OrderConfirmedEventPublisher orderConfirmedEventPublisher;
     private final OrderPaidEventPublisher orderPaidEventPublisher;
+    private final OrderShipmentFailedEventPublisher orderShipmentFailedEventPublisher;
 
     public OrderSagaService(
             OrderRepository orderRepository,
             OrderFailedEventPublisher orderFailedEventPublisher,
             OrderConfirmedEventPublisher orderConfirmedEventPublisher,
-            OrderPaidEventPublisher orderPaidEventPublisher
+            OrderPaidEventPublisher orderPaidEventPublisher,
+            OrderShipmentFailedEventPublisher orderShipmentFailedEventPublisher
     ) {
         this.orderRepository = orderRepository;
         this.orderFailedEventPublisher = orderFailedEventPublisher;
         this.orderConfirmedEventPublisher = orderConfirmedEventPublisher;
         this.orderPaidEventPublisher = orderPaidEventPublisher;
+        this.orderShipmentFailedEventPublisher = orderShipmentFailedEventPublisher;
     }
 
     @Transactional
@@ -117,13 +122,25 @@ public class OrderSagaService {
     }
 
     @Transactional
-    public void markAsShipmentFailed(Long orderId) {
+    public void markAsShipmentFailed(Long orderId, String reason) {
         OrderEntity order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         boolean transitioned = applyShipmentTransition(order, OrderStatus.SHIPMENT_FAILED);
         if (transitioned) {
-            log.info("Marked order id={} orderNumber={} as SHIPMENT_FAILED", order.getId(), order.getOrderNumber());
+            var event = new OrderShipmentFailedEvent(
+                    UUID.randomUUID(),
+                    order.getId(),
+                    order.getOrderNumber(),
+                    reason,
+                    OffsetDateTime.now(ZoneOffset.UTC)
+            );
+            orderShipmentFailedEventPublisher.publish(event);
+            log.info(
+                    "Published OrderShipmentFailedEvent eventId={} orderId={} orderNumber={}",
+                    event.eventId(), order.getId(), order.getOrderNumber()
+            );
         }
+        log.info("Marked order id={} orderNumber={} as SHIPMENT_FAILED", order.getId(), order.getOrderNumber());
     }
 
     private boolean applyPaymentTransition(OrderEntity order, OrderStatus target) {
