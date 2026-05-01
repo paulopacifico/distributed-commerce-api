@@ -78,3 +78,12 @@ logging:
   level:
     root: INFO
     com.paulopacifico.orderservice: INFO
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-hours: ${JWT_EXPIRATION_HOURS:24}
+
+app:
+  auth:
+    username: ${AUTH_USERNAME:demo}
+    password: ${AUTH_PASSWORD:demo}

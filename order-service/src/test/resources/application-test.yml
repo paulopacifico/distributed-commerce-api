@@ -1,0 +1,8 @@
+jwt:
+  secret: "test-secret-key-for-integration-tests-only-minimum"
+  expiration-hours: 1
+
+app:
+  auth:
+    username: demo
+    password: demo
