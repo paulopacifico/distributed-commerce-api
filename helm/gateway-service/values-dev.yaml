@@ -1,0 +1,18 @@
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 384Mi
+  limits:
+    cpu: 500m
+    memory: 768Mi
+
+config:
+  redisHost: "redis-master"
+  redisPort: "6379"
+  zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
+  tracingSamplingProbability: "1.0"
+
+hpa:
+  enabled: false

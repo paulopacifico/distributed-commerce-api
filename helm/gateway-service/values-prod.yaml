@@ -1,0 +1,24 @@
+replicaCount: 2
+
+image:
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+config:
+  redisHost: "${REDIS_MASTER_HOST}"
+  redisPort: "${REDIS_MASTER_PORT}"
+  zipkinEndpoint: "${ZIPKIN_ENDPOINT}"
+  tracingSamplingProbability: "0.1"
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70

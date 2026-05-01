@@ -38,12 +38,12 @@ hpa:
 
 probes:
   liveness:
-    path: /actuator/health/liveness
+    path: /actuator/health
     initialDelaySeconds: 60
     periodSeconds: 15
     failureThreshold: 3
   readiness:
-    path: /actuator/health/readiness
+    path: /actuator/health
     initialDelaySeconds: 30
     periodSeconds: 10
     failureThreshold: 3
