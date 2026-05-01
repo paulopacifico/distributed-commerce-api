@@ -71,6 +71,9 @@ app:
       shipment-shipped: ${SHIPMENT_SHIPPED_TOPIC:shipment-shipped-topic}
       shipment-failed: ${SHIPMENT_FAILED_TOPIC:shipment-failed-topic}
       order-shipment-failed: ${ORDER_SHIPMENT_FAILED_TOPIC:order-shipment-failed-topic}
+  auth:
+    username: ${AUTH_USERNAME:demo}
+    password: ${AUTH_PASSWORD:demo}
 
 logging:
   pattern:
@@ -82,8 +85,3 @@ logging:
 jwt:
   secret: ${JWT_SECRET}
   expiration-hours: ${JWT_EXPIRATION_HOURS:24}
-
-app:
-  auth:
-    username: ${AUTH_USERNAME:demo}
-    password: ${AUTH_PASSWORD:demo}
