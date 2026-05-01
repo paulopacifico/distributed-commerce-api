@@ -12,9 +12,9 @@ resources:
     memory: 1Gi
 
 config:
-  redisHost: "${REDIS_MASTER_HOST}"
-  redisPort: "${REDIS_MASTER_PORT}"
-  zipkinEndpoint: "${ZIPKIN_ENDPOINT}"
+  redisHost: "redis-master.production.svc.cluster.local"
+  redisPort: "6379"
+  zipkinEndpoint: "http://zipkin.production.svc.cluster.local:9411/api/v2/spans"
   tracingSamplingProbability: "0.1"
 
 hpa:
