@@ -72,8 +72,8 @@ app:
       shipment-failed: ${SHIPMENT_FAILED_TOPIC:shipment-failed-topic}
       order-shipment-failed: ${ORDER_SHIPMENT_FAILED_TOPIC:order-shipment-failed-topic}
   auth:
-    username: ${AUTH_USERNAME:demo}
-    password: ${AUTH_PASSWORD:demo}
+    username: ${AUTH_USERNAME}
+    password: ${AUTH_PASSWORD}
 
 logging:
   pattern:
