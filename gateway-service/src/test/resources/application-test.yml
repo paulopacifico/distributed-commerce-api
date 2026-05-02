@@ -1,0 +1,27 @@
+jwt:
+  secret: "test-secret-key-for-unit-tests-long-enough-32b"
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: order-route
+          uri: http://localhost:${wiremock.server.port}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 1
+                redis-rate-limiter.burstCapacity: 2
+                key-resolver: "#{@ipKeyResolver}"
+        - id: auth-route
+          uri: http://localhost:${wiremock.server.port}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"

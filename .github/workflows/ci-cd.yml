@@ -54,6 +54,10 @@ jobs:
         working-directory: shipment-service
         run: mvn -B clean verify -Dspring.profiles.active=test
 
+      - name: Build and test gateway-service
+        working-directory: gateway-service
+        run: mvn -B clean verify -Dspring.profiles.active=test
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -64,6 +68,7 @@ jobs:
             inventory-service/target/surefire-reports/
             payment-service/target/surefire-reports/
             shipment-service/target/surefire-reports/
+            gateway-service/target/surefire-reports/
 
       - name: Build Docker image for order-service
         run: docker build -t order-service:ci ./order-service
@@ -76,6 +81,9 @@ jobs:
 
       - name: Build Docker image for shipment-service
         run: docker build -t shipment-service:ci ./shipment-service
+
+      - name: Build Docker image for gateway-service
+        run: docker build -t gateway-service:ci ./gateway-service
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -92,6 +100,8 @@ jobs:
           helm lint helm/payment-service   -f helm/payment-service/values-prod.yaml
           helm lint helm/shipment-service  -f helm/shipment-service/values-dev.yaml
           helm lint helm/shipment-service  -f helm/shipment-service/values-prod.yaml
+          helm lint helm/gateway-service   -f helm/gateway-service/values-dev.yaml
+          helm lint helm/gateway-service   -f helm/gateway-service/values-prod.yaml
 
       - name: Template Helm charts (dry-run render)
         run: |
@@ -103,3 +113,5 @@ jobs:
           helm template payment-service   helm/payment-service   -f helm/payment-service/values-prod.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template shipment-service  helm/shipment-service  -f helm/shipment-service/values-dev.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template shipment-service  helm/shipment-service  -f helm/shipment-service/values-prod.yaml --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template gateway-service   helm/gateway-service   -f helm/gateway-service/values-dev.yaml  > /dev/null
+          helm template gateway-service   helm/gateway-service   -f helm/gateway-service/values-prod.yaml > /dev/null

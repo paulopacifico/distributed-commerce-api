@@ -1,5 +1,5 @@
 image:
-  repository: order-service
+  repository: paulopacifico/gateway-service
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -7,7 +7,7 @@ replicaCount: 1
 
 service:
   type: ClusterIP
-  port: 8081
+  port: 8080
 
 resources:
   requests:
@@ -18,24 +18,19 @@ resources:
     memory: 768Mi
 
 config:
-  serverPort: "8081"
-  kafkaBootstrapServers: "kafka:9092"
-  kafkaConsumerGroup: "order-service"
+  serverPort: "8080"
+  redisHost: "redis-master"
+  redisPort: "6379"
   zipkinEndpoint: "http://zipkin:9411/api/v2/spans"
-  dbUrl: "jdbc:postgresql://postgres:5432/order_db"
   tracingSamplingProbability: "1.0"
-  topics:
-    orderPlaced: "order-placed-topic"
-    inventoryReserved: "inventory-reserved-topic"
-    inventoryFailed: "inventory-failed-topic"
-    orderFailed: "order-failed-topic"
+  orderServiceUrl: "http://order-service:8081"
+  inventoryServiceUrl: "http://inventory-service:8082"
 
-# Sensitive values — never commit real credentials.
-# Supply at deploy time via: --set secret.dbUsername=... --set secret.dbPassword=... --set secret.jwtSecret=...
-secret:
-  dbUsername: ""
-  dbPassword: ""
-  jwtSecret: ""
+# JWT_SECRET is read from the Kubernetes secret named `gateway-jwt-secret` (key: secret).
+# Supply that secret out-of-band before deploying — do not commit real values here.
+jwtSecretRef:
+  name: gateway-jwt-secret
+  key: secret
 
 hpa:
   enabled: false

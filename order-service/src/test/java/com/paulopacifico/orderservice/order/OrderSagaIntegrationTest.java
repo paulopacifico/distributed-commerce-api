@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
@@ -53,9 +55,11 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
     @Test
     void shouldMarkOrderAsPaidWhenPaymentSucceeds() throws Exception {
         // Create an order via HTTP
-        var response = testRestTemplate.postForEntity(
+        var headers = authHeaders(port, testRestTemplate);
+        var response = testRestTemplate.exchange(
                 "http://localhost:" + port + "/api/orders",
-                new CreateOrderRequest("SKU-PAY-200", new BigDecimal("29.99"), 2),
+                HttpMethod.POST,
+                new HttpEntity<>(new CreateOrderRequest("SKU-PAY-200", new BigDecimal("29.99"), 2), headers),
                 String.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -94,9 +98,11 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
     @Test
     void shouldMarkOrderAsPaymentFailedWhenPaymentFails() throws Exception {
         // Create an order via HTTP
-        var response = testRestTemplate.postForEntity(
+        var headers = authHeaders(port, testRestTemplate);
+        var response = testRestTemplate.exchange(
                 "http://localhost:" + port + "/api/orders",
-                new CreateOrderRequest("SKU-PAY-300", new BigDecimal("15.00"), 1),
+                HttpMethod.POST,
+                new HttpEntity<>(new CreateOrderRequest("SKU-PAY-300", new BigDecimal("15.00"), 1), headers),
                 String.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
@@ -290,9 +296,11 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
     }
 
     private OrderResponse createPendingOrder(String skuCode, int quantity) {
-        var response = testRestTemplate.postForEntity(
+        var headers = authHeaders(port, testRestTemplate);
+        var response = testRestTemplate.exchange(
                 "http://localhost:" + port + "/api/orders",
-                new CreateOrderRequest(skuCode, new BigDecimal("29.90"), quantity),
+                HttpMethod.POST,
+                new HttpEntity<>(new CreateOrderRequest(skuCode, new BigDecimal("29.90"), quantity), headers),
                 OrderResponse.class
         );
         assertThat(response.getStatusCode())
@@ -305,8 +313,11 @@ class OrderSagaIntegrationTest extends AbstractIntegrationTest {
     }
 
     private OrderResponse getOrder(Long orderId) {
-        var response = testRestTemplate.getForEntity(
+        var headers = authHeaders(port, testRestTemplate);
+        var response = testRestTemplate.exchange(
                 "http://localhost:" + port + "/api/orders/" + orderId,
+                HttpMethod.GET,
+                new HttpEntity<>(null, headers),
                 OrderResponse.class
         );
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
