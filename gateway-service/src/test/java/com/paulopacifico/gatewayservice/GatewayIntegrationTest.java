@@ -16,8 +16,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import javax.crypto.SecretKey;
@@ -36,15 +34,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWireMock(port = 0)
 @ActiveProfiles("test")
-@Testcontainers
 class GatewayIntegrationTest {
 
     private static final String TEST_SECRET = "test-secret-key-for-unit-tests-long-enough-32b";
 
-    @Container
     static GenericContainer<?> redis =
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                     .withExposedPorts(6379);
+
+    static {
+        redis.start();
+    }
 
     @DynamicPropertySource
     static void redisProperties(DynamicPropertyRegistry registry) {
