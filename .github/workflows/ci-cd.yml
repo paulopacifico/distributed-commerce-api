@@ -105,8 +105,8 @@ jobs:
 
       - name: Template Helm charts (dry-run render)
         run: |
-          helm template order-service     helm/order-service     -f helm/order-service/values-dev.yaml     --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
-          helm template order-service     helm/order-service     -f helm/order-service/values-prod.yaml    --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
+          helm template order-service     helm/order-service     -f helm/order-service/values-dev.yaml     --set secret.dbUsername=ci --set secret.dbPassword=ci --set secret.jwtSecret=ci > /dev/null
+          helm template order-service     helm/order-service     -f helm/order-service/values-prod.yaml    --set secret.dbUsername=ci --set secret.dbPassword=ci --set secret.jwtSecret=ci > /dev/null
           helm template inventory-service helm/inventory-service -f helm/inventory-service/values-dev.yaml  --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template inventory-service helm/inventory-service -f helm/inventory-service/values-prod.yaml --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
           helm template payment-service   helm/payment-service   -f helm/payment-service/values-dev.yaml   --set secret.dbUsername=ci --set secret.dbPassword=ci > /dev/null
