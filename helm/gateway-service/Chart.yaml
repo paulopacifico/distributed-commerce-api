@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gateway-service
+description: API Gateway Service for the distributed commerce platform — handles routing, JWT validation, and rate limiting
+type: application
+version: 0.1.0
+appVersion: "0.0.1-SNAPSHOT"

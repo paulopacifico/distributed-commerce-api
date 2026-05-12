@@ -3,3 +3,4 @@ order-service/.m2/
 inventory-service/target/
 inventory-service/.m2/
 .DS_Store
+.worktrees/

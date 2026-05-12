@@ -13,8 +13,11 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpHeaders;
 
 public abstract class AbstractIntegrationTest {
 
@@ -55,5 +58,18 @@ public abstract class AbstractIntegrationTest {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class
         );
         return new KafkaConsumer<>(properties);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected HttpHeaders authHeaders(int port, TestRestTemplate restTemplate) {
+        var response = restTemplate.postForEntity(
+                "http://localhost:" + port + "/api/auth/token",
+                Map.of("username", "demo", "password", "demo"),
+                Map.class
+        );
+        var token = (String) Objects.requireNonNull(response.getBody()).get("token");
+        var headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        return headers;
     }
 }

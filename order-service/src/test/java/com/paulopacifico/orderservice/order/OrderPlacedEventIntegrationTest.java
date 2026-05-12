@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -36,9 +38,11 @@ class OrderPlacedEventIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldCreateOrderAndPublishOrderPlacedEvent() {
-        ResponseEntity<String> response = testRestTemplate.postForEntity(
+        var headers = authHeaders(port, testRestTemplate);
+        ResponseEntity<String> response = testRestTemplate.exchange(
                 "http://localhost:" + port + "/api/orders",
-                new CreateOrderRequest("SKU-IT-100", new BigDecimal("49.90"), 3),
+                HttpMethod.POST,
+                new HttpEntity<>(new CreateOrderRequest("SKU-IT-100", new BigDecimal("49.90"), 3), headers),
                 String.class
         );
 
